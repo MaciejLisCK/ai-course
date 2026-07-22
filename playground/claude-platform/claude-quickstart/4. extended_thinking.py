@@ -14,7 +14,7 @@ response = client.messages.create(
     thinking=thinking,
     max_tokens=15000,
     messages=[
-        {"role": "user", "content": "Ile to jest 27 * 453?"}
+        {"role": "user", "content": "Ile to jest 27 * 453? Podaj sam wynik."}
     ]
 )
 
