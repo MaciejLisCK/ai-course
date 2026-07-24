@@ -1,0 +1,100 @@
+<h2 class="sr-only">Nowy interaktywny quiz sprawdzający rozróżnianie modeli konwersacyjnych, rozumujących, AI workflow, agentów AI i agentic AI, z wymieszaną kolejnością poprawnych odpowiedzi</h2>
+<div id="quiz-root"></div>
+<script>
+const QUESTIONS = [
+  {q: "Model, który dostaje pytanie „czy 8191 jest liczbą pierwszą\" i przed odpowiedzią generuje wewnętrzny, wieloetapowy tok obliczeń i weryfikacji — ale nie sięga po żadne zewnętrzne narzędzie ani nie działa w pętli z otoczeniem.", a: "model rozumujący"},
+  {q: "Zespół komponentów LLM: jeden monitoruje skrzynkę mailową, drugi klasyfikuje zgłoszenia, trzeci pisze odpowiedzi, czwarty eskaluje trudne przypadki do człowieka — każdy ma własne narzędzia i sam decyduje, kiedy przekazać sprawę dalej.", a: "agentic AI"},
+  {q: "Skrypt HR: nowy pracownik wypełnia formularz → dane trafiają automatycznie do systemu payroll → LLM generuje powitalny e-mail wg szablonu → e-mail jest wysyłany. Zawsze te same kroki w tej samej kolejności.", a: "AI workflow"},
+  {q: "Rozmowa z asystentem, w której pytasz o przepis na ciasto, a on odpowiada na podstawie tego, co napisałeś w tej i poprzednich turach tej samej rozmowy — bez wywoływania narzędzi, bez samodzielnego planowania kolejnych kroków.", a: "model konwersacyjny"},
+  {q: "System, który dostaje polecenie „uporządkuj moje pliki w Google Drive wg typu\", sam sprawdza zawartość folderów, decyduje o strukturze, przenosi pliki i w razie konfliktu nazw sam wybiera rozwiązanie — bez z góry ustalonego schematu działania.", a: "agent AI"},
+  {q: "System rekrutacyjny: CV trafia do parsera → wynik trafia do reguły punktującej słowa kluczowe → jeśli wynik > próg, LLM generuje spersonalizowaną wiadomość do kandydata. Każdy krok jest z góry zdefiniowany i nie zmienia się między uruchomieniami.", a: "AI workflow"},
+  {q: "Model, który przed podaniem odpowiedzi na zagadkę logiczną „na głos\" rozpisuje kilka hipotez, sprawdza je pod względem spójności i odrzuca błędne — całość dzieje się w jednej odpowiedzi tekstowej, bez interakcji ze światem zewnętrznym.", a: "model rozumujący"},
+  {q: "Agent, któremu zlecasz „zaplanuj i zbukuj catering na firmowe wydarzenie w budżecie 3000 zł\" — sam przeszukuje oferty, kontaktuje się (przez narzędzia) z dostawcami, negocjuje termin i dostosowuje plan, gdy któryś dostawca odmówi.", a: "agent AI"},
+  {q: "Grupa wyspecjalizowanych agentów pracujących nad raportem finansowym: jeden zbiera dane z API giełdowego, drugi liczy wskaźniki, trzeci pisze narrację, czwarty pełni rolę recenzenta i odsyła zadania do poprawy — komunikują się między sobą i sami ustalają kolejność pracy.", a: "agentic AI"},
+  {q: "Czat z modelem, w którym pytasz o różnicę między TCP a UDP, a on odpowiada na podstawie wiedzy zawartej w wagach modelu i kontekstu tej rozmowy — nie ma dostępu do internetu ani żadnych narzędzi.", a: "model konwersacyjny"}
+];
+const OPTIONS = ["model konwersacyjny", "model rozumujący", "AI workflow", "agent AI", "agentic AI"];
+
+let current = 0;
+let score = 0;
+let answers = [];
+
+function render() {
+  const root = document.getElementById('quiz-root');
+  if (current >= QUESTIONS.length) {
+    renderResults(root);
+    return;
+  }
+  const item = QUESTIONS[current];
+  root.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span style="font-size:13px; color:var(--text-secondary);">Pytanie ${current+1} z ${QUESTIONS.length}</span>
+      <span style="font-size:13px; color:var(--text-secondary);">Wynik: ${score}/${current}</span>
+    </div>
+    <p style="font-size:16px; line-height:1.7; margin:0 0 1.25rem;">${item.q}</p>
+    <div id="opts" style="display:flex; flex-direction:column; gap:8px;"></div>
+  `;
+  const optsDiv = document.getElementById('opts');
+  OPTIONS.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.textContent = opt;
+    btn.style.textAlign = 'left';
+    btn.style.padding = '10px 14px';
+    btn.onclick = () => selectAnswer(opt, item.a, btn, optsDiv);
+    optsDiv.appendChild(btn);
+  });
+}
+
+function selectAnswer(chosen, correct, btn, optsDiv) {
+  Array.from(optsDiv.children).forEach(b => b.disabled = true);
+  const isCorrect = chosen === correct;
+  if (isCorrect) {
+    score++;
+    btn.style.borderColor = 'var(--border-success)';
+    btn.style.background = 'var(--bg-success)';
+    btn.style.color = 'var(--text-success)';
+  } else {
+    btn.style.borderColor = 'var(--border-danger)';
+    btn.style.background = 'var(--bg-danger)';
+    btn.style.color = 'var(--text-danger)';
+    Array.from(optsDiv.children).forEach(b => {
+      if (b.textContent === correct) {
+        b.style.borderColor = 'var(--border-success)';
+        b.style.background = 'var(--bg-success)';
+        b.style.color = 'var(--text-success)';
+      }
+    });
+  }
+  answers.push({q: current, chosen, correct, isCorrect});
+  const nextBtn = document.createElement('button');
+  nextBtn.textContent = current === QUESTIONS.length - 1 ? 'Zobacz wynik' : 'Następne pytanie';
+  nextBtn.style.marginTop = '12px';
+  nextBtn.style.borderColor = 'var(--border-strong)';
+  nextBtn.onclick = () => { current++; render(); };
+  optsDiv.appendChild(nextBtn);
+}
+
+function renderResults(root) {
+  const wrong = answers.filter(a => !a.isCorrect);
+  let wrongHtml = '';
+  if (wrong.length > 0) {
+    wrongHtml = '<div style="margin-top:1.5rem;"><p style="font-size:14px; color:var(--text-secondary); margin-bottom:8px;">Do powtórki:</p>' +
+      wrong.map(w => `<div style="font-size:13px; padding:8px 0; border-top:0.5px solid var(--border);">Pytanie ${w.q+1}: wybrano <strong style="font-weight:500;">${w.chosen}</strong>, poprawnie <strong style="font-weight:500; color:var(--text-success);">${w.correct}</strong></div>`).join('') +
+      '</div>';
+  }
+  root.innerHTML = `
+    <div style="text-align:center; padding:1rem 0;">
+      <p style="font-size:13px; color:var(--text-secondary); margin:0 0 4px;">Wynik końcowy</p>
+      <p style="font-size:32px; font-weight:500; margin:0;">${score} / ${QUESTIONS.length}</p>
+    </div>
+    ${wrongHtml}
+    <button id="restart" style="margin-top:1.5rem; width:100%;">Zacznij od nowa</button>
+  `;
+  document.getElementById('restart').onclick = () => {
+    current = 0; score = 0; answers = [];
+    render();
+  };
+}
+
+render();
+</script>
