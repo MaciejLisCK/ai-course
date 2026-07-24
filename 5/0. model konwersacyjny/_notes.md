@@ -1,0 +1,1 @@
+zwykły model llm, bez harness
