@@ -1,0 +1,81 @@
+Asus@DESKTOP-QGP3GMI MINGW64 /c/maciejlisck/ai-course/ai-course (main)
+$ c:/maciejlisck/ai-course/ai-course/playground/claude-platform/claude-quickstart/.venv/Scripts/python.exe "c:/maciejlisck/ai-course/ai-course/playground/claude-platform/claude-quickstart/2. stop_reasons.py"
+{
+  "id": "msg_011CdTMqoaPNiiBriuuudzXw",
+  "container": null,
+  "content": [
+    {
+      "signature": "CAISlQIKiAEIEBgCKkASKynmPHuzNQWVeM+/frcLfQxKHMSSobIV+ADWlUsJlb6ihFaSKke+T1a9G+/y2q9mCAphzg62O0CyzNhwvJh+Mg5jbGF1ZGUtZmFibGUtNTgBQgh0aGlua2luZ1okZWViOTNmNDYtMTMxMC00NjkwLTg3NmMtYTEwZGE4ZWVkYjg4EgzNV31AONJO/ye/ADMaDJ91VuZ9Xtm/B8rwhCIw6ISg0/a0/7m1e6QAfkVQKz/49OjCggUiBxFvc78iSQnZvSVgrC0RtmSnSLkK3rjxKjr0s48LFIIiNRtnlCaggtL/9LboAYwSZV1DWmnpm97D2g5n65QG8df0Hys5jFJnnXwJcVKcC80aEp3AGAE=",
+      "thinking": "",
+      "type": "thinking"
+    },
+    {
+      "id": "toolu_017cm3o3nzrtYcPLpwj3JNAR",
+      "caller": {
+        "type": "direct"
+      },
+      "input": {
+        "cat": "bohen"
+      },
+      "name": "cat_location_tool",
+      "type": "tool_use"
+    }
+  ],
+  "model": "claude-fable-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "tool_use",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 411,
+    "output_tokens": 76,
+    "output_tokens_details": {
+      "thinking_tokens": 21
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
+Koszyczek w kuchni przy oknie
+{
+  "id": "msg_011CdTMr6bZyqicxsuFUJuvL",
+  "container": null,
+  "content": [
+    {
+      "citations": null,
+      "text": "Bohen ostatnio był widziany w koszyczku w kuchni przy oknie. 🐱",
+      "type": "text"
+    }
+  ],
+  "model": "claude-fable-5",
+  "role": "assistant",
+  "stop_details": null,
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "type": "message",
+  "usage": {
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "inference_geo": "global",
+    "input_tokens": 512,
+    "output_tokens": 35,
+    "output_tokens_details": {
+      "thinking_tokens": 0
+    },
+    "server_tool_use": null,
+    "service_tier": "standard"
+  }
+}
+(.venv) 

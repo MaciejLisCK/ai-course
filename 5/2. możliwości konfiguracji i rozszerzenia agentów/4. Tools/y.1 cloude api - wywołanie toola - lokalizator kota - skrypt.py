@@ -1,62 +1,5 @@
-# # end turn
-# import anthropic
-
-# client = anthropic.Anthropic()
-
-# response = client.messages.create(
-#     model="claude-fable-5",
-#     messages=[
-#         { "role": "user", "content": "Kim jesteś?" }
-#     ]
-# )
-
-# output = response.model_dump_json(indent=2)
-
-# print(output)
-
-
-
-# # max tokens
-# import anthropic
-
-# client = anthropic.Anthropic()
-
-# response = client.messages.create(
-#     model="claude-fable-5",
-#     max_tokens=10,
-#     messages=[
-#         { "role": "user", "content": "Kim jesteś?" }
-#     ]
-# )
-
-# output = response.model_dump_json(indent=2)
-
-# print(output)
-
-
-# # stop sequence
-# import anthropic
-
-# client = anthropic.Anthropic()
-
-# response = client.messages.create(
-#     model="claude-fable-5",
-#     max_tokens=100,
-#     stop_sequences=["7", "siedem"],
-#     messages=[
-#         { "role": "user", "content": "Wymień liczby od 1 do 100" }
-#     ]
-# )
-
-# output = response.model_dump_json(indent=2)
-
-# print(output)
-
-
-
-# # tool use
-
 import anthropic
+from urllib.request import urlopen
 
 client = anthropic.Anthropic()
 
@@ -86,9 +29,13 @@ output1 = response.model_dump_json(indent=2)
 print(output1)
 
 tool_use = next(block for block in response.content if block.type == "tool_use")
+cat_name = tool_use.input["cat"]
 
 # ------- start wywołania toola ---------
-hardcoded_cat_location_tool_result = "Koszyczek w kuchni na oknie."
+with urlopen(f"http://10.1.0.54/cat-location/{cat_name}") as http_response:
+    cat_location_tool_result = http_response.read().decode("utf-8")
+
+print(cat_location_tool_result)
 # ------- stop wywołania toola ----------
 
 final_response = client.messages.create(
@@ -104,7 +51,7 @@ final_response = client.messages.create(
                 {
                     "type": "tool_result",
                     "tool_use_id": tool_use.id,
-                    "content": hardcoded_cat_location_tool_result,
+                    "content": cat_location_tool_result,
                 }
             ],
         },
