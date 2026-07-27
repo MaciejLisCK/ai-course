@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<!-- saved from url=(0060)file:///C:/Users/Asus/Downloads/quiz_konteksty_claude_1.html -->
+<html lang="pl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz: konteksty Claude</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f5f4f0;
+    color: #2c2c2a;
+    display: flex;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+  .card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e3e1d9;
+    padding: 32px;
+    max-width: 640px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .progress-label {
+    font-size: 13px;
+    color: #6b6a63;
+    margin-bottom: 6px;
+  }
+  .progress-bar {
+    height: 6px;
+    background: #ececE6;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: #378ADD;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .question {
+    font-size: 17px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 12px 16px;
+    margin-bottom: 10px;
+    font-size: 15px;
+    background: #fff;
+    border: 1px solid #d8d6cd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .option:hover:not(:disabled) {
+    background: #f7f6f2;
+  }
+  .option:disabled {
+    cursor: default;
+  }
+  .option.correct {
+    background: #EAF3DE;
+    border-color: #639922;
+    color: #27500A;
+    font-weight: 500;
+  }
+  .option.wrong {
+    background: #FCEBEB;
+    border-color: #E24B4A;
+    color: #791F1F;
+    font-weight: 500;
+  }
+  .feedback {
+    font-size: 14px;
+    margin: 4px 0 16px;
+  }
+  .feedback.ok { color: #27500A; }
+  .feedback.no { color: #791F1F; }
+  button.nav {
+    background: #2c2c2a;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  button.nav:hover { background: #444441; }
+  .result-score {
+    text-align: center;
+    padding: 24px 0;
+  }
+  .result-score .num {
+    font-size: 36px;
+    font-weight: 600;
+    margin: 4px 0;
+  }
+  .result-score .pct {
+    color: #6b6a63;
+    margin-bottom: 20px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="app">
+    <div class="progress-label">Pytanie 1 z 14</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:7.142857142857142%"></div></div>
+    <div class="question">Chcesz, żeby Claude zawsze wiedział, że pracujesz jako programista Python i preferujesz krótkie odpowiedzi bez zbędnych wyjaśnień, niezależnie od projektu, nad którym akurat pracujesz.</div>
+    <div><button class="option" onclick="selectAnswer(0)">Personal context</button><button class="option" onclick="selectAnswer(1)">Workspace context</button><button class="option" onclick="selectAnswer(2)">Skille</button><button class="option" onclick="selectAnswer(3)">Tools</button><button class="option" onclick="selectAnswer(4)">Hooks</button><button class="option" onclick="selectAnswer(5)">MCP</button><button class="option" onclick="selectAnswer(6)">Pamięć</button></div>
+    
+    
+  </div>
+</div>
+
+<script>
+const OPTIONS = ["Personal context","Workspace context","Skille","Tools","Hooks","MCP","Pamięć"];
+
+const QUESTIONS = [
+  {t:"Chcesz, żeby Claude zawsze wiedział, że pracujesz jako programista Python i preferujesz krótkie odpowiedzi bez zbędnych wyjaśnień, niezależnie od projektu, nad którym akurat pracujesz.", a:0},
+  {t:"Masz gotowy, szczegółowy proces krok po kroku tworzenia prezentacji PowerPoint zgodnie z brandingiem firmy, który Claude powinien wczytać przed wykonaniem zadania.", a:2},
+  {t:"Chcesz połączyć Claude z Twoim kontem Gmail, żeby mógł czytać i wysyłać wiadomości w Twoim imieniu.", a:5},
+  {t:"Claude musi wykonać polecenie w terminalu, żeby zainstalować pakiet npm potrzebny do zadania.", a:3},
+  {t:"Zawsze pracujesz w trybie ciemnym i preferujesz komunikację po polsku — chcesz, by Claude pamiętał to w każdej rozmowie, niezależnie od projektu.", a:0},
+  {t:"Plik konfiguracyjny w katalogu głównym repozytorium opisuje, jak uruchomić testy i jakiego frameworka używa akurat ten projekt.", a:1},
+  {t:"Claude nawiązuje do tego, że w zeszłym tygodniu rozmawialiście o Twoim projekcie „Aurora”, mimo że nie wspomniałeś o nim w tej rozmowie.", a:6},
+  {t:"Claude odczytuje zawartość pliku na dysku, żeby sprawdzić, co się w nim znajduje, zanim zacznie go edytować.", a:3},
+  {t:"W repozytorium zespołu znajduje się dokument opisujący konwencje nazewnictwa zmiennych i strukturę folderów specyficzną dla tego projektu.", a:1},
+  {t:"Chcesz, żeby po każdym zapisaniu pliku automatycznie uruchamiał się linter, bez Twojej interwencji.", a:4},
+  {t:"Claude wspomina, że wcześniej ustaliliście, że wolisz odpowiedzi w formie list punktowanych, mimo że nie napisałeś tego w bieżącej rozmowie.", a:6},
+  {t:"Potrzebujesz, by Claude wiedział dokładnie, jak wygenerować raport PDF z tabelami zgodnie z wewnętrznym standardem firmy, krok po kroku.", a:2},
+  {t:"Chcesz, by przed każdym commitem automatycznie uruchamiało się formatowanie kodu, bez konieczności proszenia o to za każdym razem.", a:4},
+  {t:"Chcesz, by Claude mógł tworzyć zadania bezpośrednio w Twoim Trello, korzystając z integracji z tą usługą.", a:5}
+];
+
+let current = 0;
+let score = 0;
+const userAnswers = new Array(QUESTIONS.length).fill(null);
+
+function render(){
+  const app = document.getElementById('app');
+  const q = QUESTIONS[current];
+  const chosen = userAnswers[current];
+  const answered = chosen !== null;
+
+  let optsHtml = OPTIONS.map((opt, i) => {
+    let cls = "option";
+    let icon = "";
+    if(answered){
+      if(i === q.a){ cls += " correct"; icon = "✓ "; }
+      else if(i === chosen){ cls += " wrong"; icon = "✗ "; }
+    }
+    return `<button class="${cls}" onclick="selectAnswer(${i})" ${answered ? 'disabled' : ''}>${icon}${opt}</button>`;
+  }).join("");
+
+  let feedback = "";
+  if(answered){
+    const correct = chosen === q.a;
+    feedback = `<p class="feedback ${correct ? 'ok' : 'no'}">${correct ? 'Dobrze!' : 'Poprawna odpowiedź: ' + OPTIONS[q.a]}</p>`;
+  }
+
+  let navBtn = "";
+  if(answered){
+    if(current < QUESTIONS.length - 1){
+      navBtn = `<button class="nav" onclick="nextQuestion()">Następne pytanie →</button>`;
+    } else {
+      navBtn = `<button class="nav" onclick="showResults()">Zobacz wynik →</button>`;
+    }
+  }
+
+  app.innerHTML = `
+    <div class="progress-label">Pytanie ${current+1} z ${QUESTIONS.length}</div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${((current+1)/QUESTIONS.length)*100}%"></div></div>
+    <div class="question">${q.t}</div>
+    <div>${optsHtml}</div>
+    ${feedback}
+    ${navBtn}
+  `;
+}
+
+function selectAnswer(i){
+  if(userAnswers[current] !== null) return;
+  userAnswers[current] = i;
+  if(i === QUESTIONS[current].a) score++;
+  render();
+}
+
+function nextQuestion(){
+  current++;
+  render();
+}
+
+function showResults(){
+  const app = document.getElementById('app');
+  const pct = Math.round((score / QUESTIONS.length) * 100);
+  app.innerHTML = `
+    <div class="result-score">
+      <div style="font-size:14px;color:#6b6a63;">Twój wynik</div>
+      <div class="num">${score} / ${QUESTIONS.length}</div>
+      <div class="pct">${pct}% poprawnych odpowiedzi</div>
+      <button class="nav" onclick="restart()">Spróbuj ponownie</button>
+    </div>
+  `;
+}
+
+function restart(){
+  current = 0;
+  score = 0;
+  userAnswers.fill(null);
+  render();
+}
+
+render();
+</script>
+
+
+</body></html>
