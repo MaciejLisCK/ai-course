@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .github/hooks/prettier-json-after-edit.ps1",
+        "timeout": 15
+      }
+    ]
+  }
+}
