@@ -1,8 +1,8 @@
 Pokazać zdjęcia
 
-# Proste porównanie
-
 Osioł (Shrek) szuka mikołajka płaskolistnego, zbiera nektar w celu zniesienia klątwy.
+
+# Proste porównanie
 
 1. Osioł szuka obiektu, o konkretnych cechach: roślina, niebieskość kwiatu, kolczastość
 2. Każdy obiekt w lesie (kamień, liść, róża, mikołajek) ma nałożony filtr wyostrzający z ich cechy: bycie rośliną, niebieskości kwiatu, kolczastość 
@@ -14,8 +14,6 @@ Osioł (Shrek) szuka mikołajka płaskolistnego, zbiera nektar w celu zniesienia
 5. Osioł zabieraja nektar; odrzuca kolce, płatki, łodygi
 
 # Proste porównanie 2
-
-Osioł (Shrek) szuka mikołajka płaskolistnego, zbiera nektar w celu zniesienia klątwy.
 
 0. Nakładając macierz Q na poszczególne obiekty wynika że to osioł szuka: rośliny, niebieskości kwiatu, kolczastość. Inne rzeczy niczego nie szukają.
 2. Każdy obiekt w lesie (kamień, liść, róża, mikołajek) ma nałożoną macierz K wyostrzająca z ich embedingów cech: rośliny, niebieskości kwiatu, kolczastość 
