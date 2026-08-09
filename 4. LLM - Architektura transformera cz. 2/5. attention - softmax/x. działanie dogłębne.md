@@ -1,0 +1,18 @@
+1. otworzyć https://bbycroft.net/llm
+2. pokazć jak działa softmax
+3. wytłumaczyć czym są 2 kolumny
+    ```
+    UWAGA
+    na wizualizacji jest błąd i 2 kolumny nie pokazują prawidłowych wartości
+    te 2 kolumny są tożsame z 2 komumnami w attn matrix softmax
+    ```
+    te 2 kolumny to:
+    - po prawej - maksymalna wartość w wierszu attention matrix
+    - po lewej - zsumowane wszystkie wartości minus max (dodatkowo robimy exp)
+4. czym jest exp
+    to e^x, gdzie x to nasza liczba
+5. po co tak robimy? po co liczba eulera?
+    - chcemy mieć tylko dodatnie wartości
+    - liczba eulera daje nam przy uczeniu łatwo liczone gradienty
+    
+

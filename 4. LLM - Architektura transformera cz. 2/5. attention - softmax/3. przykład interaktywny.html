@@ -1,0 +1,80 @@
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Interaktywny widżet softmax pokazujący wartości ułamkowe sumujące się do 1 oraz procenty.</h2>
+
+<div style="display:flex;flex-direction:column;gap:10px;margin:0 0 1.5rem;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--text-secondary);min-width:60px;">x₁</label>
+    <input type="range" min="-4" max="4" step="0.1" value="1.0" id="s0" style="flex:1;">
+    <span id="v0" style="font-size:14px;font-weight:500;min-width:40px;text-align:right;">1.0</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--text-secondary);min-width:60px;">x₂</label>
+    <input type="range" min="-4" max="4" step="0.1" value="2.5" id="s1" style="flex:1;">
+    <span id="v1" style="font-size:14px;font-weight:500;min-width:40px;text-align:right;">2.5</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--text-secondary);min-width:60px;">x₃</label>
+    <input type="range" min="-4" max="4" step="0.1" value="0.2" id="s2" style="flex:1;">
+    <span id="v2" style="font-size:14px;font-weight:500;min-width:40px;text-align:right;">0.2</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <label style="font-size:14px;color:var(--text-secondary);min-width:60px;">x₄</label>
+    <input type="range" min="-4" max="4" step="0.1" value="-1.0" id="s3" style="flex:1;">
+    <span id="v3" style="font-size:14px;font-weight:500;min-width:40px;text-align:right;">-1.0</span>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:0 0 1rem;">
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);">max wiersza</div>
+    <div id="mx" style="font-size:24px;font-weight:500;">—</div>
+  </div>
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);">Σ exp(x − max)</div>
+    <div id="sm" style="font-size:24px;font-weight:500;">—</div>
+  </div>
+  <div style="background:var(--surface-1);border-radius:var(--radius);padding:1rem;">
+    <div style="font-size:13px;color:var(--text-muted);">suma wyników</div>
+    <div id="tot" style="font-size:24px;font-weight:500;color:var(--text-success);">1.00</div>
+  </div>
+</div>
+
+<div id="bars" style="display:flex;flex-direction:column;gap:8px;margin:0 0 1rem;"></div>
+
+<div id="eq" style="font-family:var(--font-mono);font-size:14px;color:var(--text-secondary);background:var(--surface-1);border-radius:var(--radius);padding:0.75rem 1rem;margin:0 0 1.5rem;"></div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+  <button onclick="preset([1,1,1,1])">Wszystkie równe</button>
+  <button onclick="preset([4,-2,-2,-3])">Jedna dominuje</button>
+  <button onclick="preset([3.5,3.4,-3,-3.2])">Dwie blisko siebie</button>
+</div>
+
+<script>
+const S=[...Array(4)].map((_,i)=>document.getElementById('s'+i));
+const V=[...Array(4)].map((_,i)=>document.getElementById('v'+i));
+const bars=document.getElementById('bars');
+const eq=document.getElementById('eq');
+const colors=['#534AB7','#0F6E56','#993C1D','#185FA5'];
+function render(){
+  const xs=S.map(s=>parseFloat(s.value));
+  xs.forEach((x,i)=>V[i].textContent=x.toFixed(1));
+  const mx=Math.max(...xs);
+  document.getElementById('mx').textContent=mx.toFixed(1);
+  const ex=xs.map(x=>Math.exp(x-mx));
+  const sum=ex.reduce((a,b)=>a+b,0);
+  document.getElementById('sm').textContent=sum.toFixed(2);
+  const p=ex.map(e=>e/sum);
+  document.getElementById('tot').textContent=p.reduce((a,b)=>a+b,0).toFixed(2);
+  bars.innerHTML=p.map((pi,i)=>
+    '<div style="display:flex;align-items:center;gap:10px;">'+
+    '<span style="font-size:13px;color:var(--text-secondary);min-width:60px;">softmax(x'+(i+1)+')</span>'+
+    '<span style="font-family:var(--font-mono);font-size:15px;font-weight:500;min-width:56px;text-align:right;color:'+colors[i]+';">'+pi.toFixed(3)+'</span>'+
+    '<div style="flex:1;height:22px;background:var(--surface-1);border-radius:4px;overflow:hidden;">'+
+    '<div style="height:100%;width:'+(pi*100).toFixed(1)+'%;background:'+colors[i]+';transition:width .2s;"></div></div>'+
+    '<span style="font-size:13px;color:var(--text-muted);min-width:48px;text-align:right;">'+(pi*100).toFixed(1)+'%</span></div>'
+  ).join('');
+  eq.textContent=p.map(pi=>pi.toFixed(3)).join(' + ')+' = '+p.reduce((a,b)=>a+b,0).toFixed(3);
+}
+function preset(a){a.forEach((v,i)=>S[i].value=v);render();}
+S.forEach(s=>s.addEventListener('input',render));
+render();
+</script>
