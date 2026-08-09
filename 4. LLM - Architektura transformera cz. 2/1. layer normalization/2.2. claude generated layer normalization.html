@@ -1,0 +1,149 @@
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Interaktywna demonstracja layer normalization: suwaki przesunięcia i skali zmieniają wygenerowane liczby tak, by średnia wyniosła 0 a odchylenie standardowe 1.</h2>
+
+<div style="display:flex; gap:8px; margin:0 0 1.25rem; flex-wrap:wrap;">
+  <button id="btn-gen"><i class="ti ti-refresh" aria-hidden="true" style="font-size:16px; vertical-align:-2px; margin-right:6px;"></i>Wygeneruj nowe liczby</button>
+  <button id="btn-auto"><i class="ti ti-wand" aria-hidden="true" style="font-size:16px; vertical-align:-2px; margin-right:6px;"></i>Auto-normalizuj</button>
+  <button id="btn-reset"><i class="ti ti-arrow-back-up" aria-hidden="true" style="font-size:16px; vertical-align:-2px; margin-right:6px;"></i>Resetuj suwaki</button>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin:0 0 1.5rem;">
+  <div style="background:var(--surface-1); border-radius:var(--radius); padding:1rem;">
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:4px;">Średnia (cel: 0)</div>
+    <div style="font-size:24px; font-weight:500;" id="stat-mean">–</div>
+  </div>
+  <div style="background:var(--surface-1); border-radius:var(--radius); padding:1rem;">
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:4px;">Odch. std (cel: 1)</div>
+    <div style="font-size:24px; font-weight:500;" id="stat-std">–</div>
+  </div>
+  <div style="background:var(--surface-1); border-radius:var(--radius); padding:1rem;">
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:4px;">Status</div>
+    <div style="font-size:15px; font-weight:500; padding-top:5px;" id="stat-status">–</div>
+  </div>
+</div>
+
+<div style="margin:0 0 1rem;">
+  <div style="display:flex; align-items:center; gap:12px; margin:0 0 1rem;">
+    <label for="sl-shift" style="font-size:14px; color:var(--text-secondary); min-width:150px;">Przesunięcie (− shift)</label>
+    <input type="range" id="sl-shift" min="-15" max="15" step="0.05" value="0" style="flex:1;" />
+    <span style="font-size:14px; font-weight:500; min-width:52px; text-align:right; font-family:var(--font-mono);" id="out-shift">0.00</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:12px; margin:0 0 1.5rem;">
+    <label for="sl-scale" style="font-size:14px; color:var(--text-secondary); min-width:150px;">Skala (÷ scale)</label>
+    <input type="range" id="sl-scale" min="0.1" max="12" step="0.05" value="1" style="flex:1;" />
+    <span style="font-size:14px; font-weight:500; min-width:52px; text-align:right; font-family:var(--font-mono);" id="out-scale">1.00</span>
+  </div>
+</div>
+
+<div style="font-size:13px; color:var(--text-secondary); margin:0 0 6px;">Wzór: x' = (x − shift) ÷ scale</div>
+<div id="plot" style="position:relative; height:150px; border-top:0.5px solid var(--border); border-bottom:0.5px solid var(--border); margin:0 0 2px;"></div>
+<div id="axis" style="position:relative; height:20px; font-size:12px; color:var(--text-muted); font-family:var(--font-mono);"></div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:1.5rem 0 0;">
+  <div>
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:6px;">Liczby oryginalne</div>
+    <div id="list-orig" style="font-family:var(--font-mono); font-size:13px; line-height:1.9;"></div>
+  </div>
+  <div>
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:6px;">Po transformacji</div>
+    <div id="list-norm" style="font-family:var(--font-mono); font-size:13px; line-height:1.9;"></div>
+  </div>
+</div>
+
+<div style="margin-top:1.5rem;">
+  <button onclick="sendPrompt('Wyjaśnij krok po kroku, dlaczego odejmowanie średniej i dzielenie przez odchylenie standardowe daje średnią 0 i std 1')">Dlaczego to działa? ↗</button>
+</div>
+
+<script>
+var nums = [];
+var N = 10;
+
+function randn() {
+  var u = 1 - Math.random(), v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function gen() {
+  var mu = (Math.random() * 12) - 6;
+  var sigma = 1.5 + Math.random() * 4;
+  nums = [];
+  for (var i = 0; i < N; i++) nums.push(mu + sigma * randn());
+  document.getElementById('sl-shift').value = 0;
+  document.getElementById('sl-scale').value = 1;
+  render();
+}
+
+function mean(a) { return a.reduce(function(s, x) { return s + x; }, 0) / a.length; }
+function std(a) {
+  var m = mean(a);
+  return Math.sqrt(a.reduce(function(s, x) { return s + (x - m) * (x - m); }, 0) / a.length);
+}
+
+function render() {
+  var shift = parseFloat(document.getElementById('sl-shift').value);
+  var scale = parseFloat(document.getElementById('sl-scale').value);
+  document.getElementById('out-shift').textContent = shift.toFixed(2);
+  document.getElementById('out-scale').textContent = scale.toFixed(2);
+
+  var norm = nums.map(function(x) { return (x - shift) / scale; });
+  var m = mean(norm), s = std(norm);
+
+  document.getElementById('stat-mean').textContent = m.toFixed(3);
+  document.getElementById('stat-std').textContent = s.toFixed(3);
+
+  var ok = Math.abs(m) < 0.05 && Math.abs(s - 1) < 0.05;
+  var st = document.getElementById('stat-status');
+  if (ok) {
+    st.innerHTML = '<span style="color:var(--text-success);"><i class="ti ti-check" aria-hidden="true" style="font-size:16px; vertical-align:-2px;"></i> Znormalizowane!</span>';
+  } else {
+    st.innerHTML = '<span style="color:var(--text-secondary);">Reguluj suwaki</span>';
+  }
+
+  var all = nums.concat(norm).concat([0, 1, -1]);
+  var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+  var pad = (hi - lo) * 0.08 || 1;
+  lo -= pad; hi += pad;
+  function px(v) { return ((v - lo) / (hi - lo)) * 100; }
+
+  var plot = document.getElementById('plot');
+  var h = '';
+  h += '<div style="position:absolute; left:' + px(0).toFixed(2) + '%; top:0; bottom:0; width:1px; background:var(--border-stronger);"></div>';
+  h += '<div style="position:absolute; left:' + px(-1).toFixed(2) + '%; top:0; bottom:0; width:1px; background:var(--border);"></div>';
+  h += '<div style="position:absolute; left:' + px(1).toFixed(2) + '%; top:0; bottom:0; width:1px; background:var(--border);"></div>';
+  h += '<div style="position:absolute; left:8px; top:26px; font-size:12px; color:var(--text-muted);">oryginalne</div>';
+  h += '<div style="position:absolute; left:8px; top:96px; font-size:12px; color:var(--text-muted);">po transformacji</div>';
+  for (var i = 0; i < N; i++) {
+    h += '<div style="position:absolute; left:calc(' + px(nums[i]).toFixed(2) + '% - 6px); top:44px; width:12px; height:12px; border-radius:50%; background:#F0997B; border:1px solid #993C1D;"></div>';
+    h += '<div style="position:absolute; left:calc(' + px(norm[i]).toFixed(2) + '% - 6px); top:114px; width:12px; height:12px; border-radius:50%; background:#5DCAA5; border:1px solid #0F6E56;"></div>';
+  }
+  plot.innerHTML = h;
+
+  var ax = document.getElementById('axis');
+  var a = '';
+  a += '<span style="position:absolute; left:2px; top:2px;">' + lo.toFixed(1) + '</span>';
+  a += '<span style="position:absolute; left:' + px(-1).toFixed(2) + '%; top:2px; transform:translateX(-50%);">-1</span>';
+  a += '<span style="position:absolute; left:' + px(0).toFixed(2) + '%; top:2px; transform:translateX(-50%); color:var(--text-secondary); font-weight:500;">0</span>';
+  a += '<span style="position:absolute; left:' + px(1).toFixed(2) + '%; top:2px; transform:translateX(-50%);">1</span>';
+  a += '<span style="position:absolute; right:2px; top:2px;">' + hi.toFixed(1) + '</span>';
+  ax.innerHTML = a;
+
+  document.getElementById('list-orig').textContent = nums.map(function(x) { return x.toFixed(2); }).join(', ');
+  document.getElementById('list-norm').textContent = norm.map(function(x) { return x.toFixed(2); }).join(', ');
+}
+
+document.getElementById('sl-shift').addEventListener('input', render);
+document.getElementById('sl-scale').addEventListener('input', render);
+document.getElementById('btn-gen').addEventListener('click', gen);
+document.getElementById('btn-reset').addEventListener('click', function() {
+  document.getElementById('sl-shift').value = 0;
+  document.getElementById('sl-scale').value = 1;
+  render();
+});
+document.getElementById('btn-auto').addEventListener('click', function() {
+  var m = mean(nums), s = std(nums);
+  document.getElementById('sl-shift').value = Math.max(-15, Math.min(15, m));
+  document.getElementById('sl-scale').value = Math.max(0.1, Math.min(12, s));
+  render();
+});
+
+gen();
+</script>
