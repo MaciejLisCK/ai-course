@@ -1,0 +1,7 @@
+1. W marcu/kwietniu 2023 pozwolono pracownikom Samsunga używać ChatGpt.
+2. Pracownicy wklejali m.in.
+    - kod
+    - procedury
+    - notki z poufnych spotkań
+3. Wtedy ChatGPT był dodatkowo trenowany o dane wprowadzane przez użytkowników.
+4. Dane trafiły do zbioru uczącego nowego modelu ChatGPT.

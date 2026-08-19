@@ -1,1 +1,0 @@
-https://www.reddit.com/r/ClaudeAI/comments/1ul1396/fable_5_leaked_chainofthought_in_web_interface/?solution=6ff43802b708b8106ff43802b708b810&js_challenge=1&token=7afd7253fec22262ff1c52b1703fe9ecc473f6f4523f0dcc31519e2c5e8fffaa&jsc_orig_r=
