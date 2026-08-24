@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mapa algorytmów AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1420; --bg2:#161c2c; --ink:#ece9e1; --ink-dim:#9aa1b4; --line:#2a3247;
+    --c0:#f2b66d; --c1:#7fc8a9; --c2:#8fb3ff; --c3:#e28ba6; --c4:#c9a7ff; --c5:#ffd166; --c6:#6fd3e8; --c7:#b8c97a; --c8:#ff9f7a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;overflow:hidden}
+  #app{display:grid;grid-template-columns:300px 1fr;height:100vh}
+  aside{background:var(--bg2);border-right:1px solid var(--line);padding:22px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+  h1{font-size:19px;letter-spacing:.02em;margin:0;font-weight:600}
+  h1 small{display:block;color:var(--ink-dim);font-weight:400;font-size:12px;margin-top:4px;letter-spacing:.08em;text-transform:uppercase}
+  .label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:8px}
+  .modes{display:flex;flex-direction:column;gap:6px}
+  .mode{background:transparent;border:1px solid var(--line);color:var(--ink);padding:10px 12px;border-radius:8px;text-align:left;cursor:pointer;font-size:13.5px;transition:.15s}
+  .mode:hover{border-color:#4a5573;background:#1c2438}
+  .mode.active{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+  .mode:focus-visible{outline:2px solid var(--c2);outline-offset:2px}
+  #legend{display:flex;flex-direction:column;gap:5px}
+  .lg{display:flex;align-items:center;gap:9px;font-size:13px;padding:5px 7px;border-radius:6px;cursor:pointer;color:var(--ink)}
+  .lg:hover{background:#1c2438}
+  .lg.muted{opacity:.35}
+  .lg i{width:11px;height:11px;border-radius:50%;flex:none}
+  .lg b{font-weight:400;flex:1}
+  .lg span{color:var(--ink-dim);font-size:11px}
+  input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);padding:9px 11px;border-radius:8px;font-size:13px}
+  input:focus{outline:2px solid var(--c2);border-color:transparent}
+  .hint{font-size:12px;color:var(--ink-dim);line-height:1.5;margin-top:auto}
+  main{position:relative}
+  svg{width:100%;height:100%;display:block;cursor:grab}
+  svg:active{cursor:grabbing}
+  .node circle{stroke:var(--bg);stroke-width:2px;transition:opacity .2s}
+  .node text{font-size:11px;fill:var(--ink);pointer-events:none;paint-order:stroke;stroke:var(--bg);stroke-width:3px;stroke-linejoin:round}
+  .node.dim{opacity:.12}
+  .hull{fill-opacity:.07;stroke-opacity:.35;stroke-width:1.2;stroke-dasharray:4 4}
+  .gtitle{font-size:13px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;pointer-events:none;paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+  #tip{position:absolute;pointer-events:none;background:#1c2438;border:1px solid #3a4460;border-radius:10px;padding:12px 14px;max-width:320px;font-size:13px;line-height:1.5;opacity:0;transition:opacity .12s;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  #tip h3{margin:0 0 6px;font-size:15px}
+  #tip .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+  #tip .tag{font-size:10.5px;background:#0f1420;border:1px solid var(--line);padding:2px 7px;border-radius:99px;color:var(--ink-dim)}
+  #tip .tag em{font-style:normal;color:var(--ink)}
+  #count{position:absolute;right:16px;top:14px;font-size:12px;color:var(--ink-dim)}
+  @media (max-width:800px){#app{grid-template-columns:1fr;grid-template-rows:auto 1fr}aside{max-height:42vh}}
+  @media (prefers-reduced-motion:reduce){.node circle{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <h1>Mapa algorytmów AI<small>66 metod · 7 perspektyw podziału</small></h1>
+    <div>
+      <div class="label">Pogrupuj według</div>
+      <div class="modes" id="modes"></div>
+    </div>
+    <div>
+      <div class="label">Grupy (kliknij, aby podświetlić)</div>
+      <div id="legend"></div>
+    </div>
+    <div>
+      <div class="label">Szukaj</div>
+      <input id="search" placeholder="np. transformer, k-means, A*…">
+    </div>
+    <div class="hint">Kółko myszy: zoom · przeciągnij tło: przesuń · przeciągnij węzeł: przestaw · najedź na węzeł: opis i wszystkie klasyfikacje.</div>
+  </aside>
+  <main>
+    <svg id="map"></svg>
+    <div id="tip"></div>
+    <div id="count"></div>
+  </main>
+</div>
+
+<script>
+// ---------- DANE ----------
+// Każdy algorytm ma wartość dla każdej perspektywy podziału.
+const ALG = [
+ // name, opis, uczenie, zadanie, rodzina, dane, interpretowalność, era, nadzór parametryczności
+ ["Regresja liniowa","Dopasowanie prostej/hiperpłaszczyzny metodą najmniejszych kwadratów.","Nadzorowane","Regresja","Modele liniowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Regresja logistyczna","Klasyfikacja przez sigmoidę na liniowej kombinacji cech.","Nadzorowane","Klasyfikacja","Modele liniowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Ridge / Lasso","Regresja liniowa z regularyzacją L2 / L1.","Nadzorowane","Regresja","Modele liniowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Perceptron","Najprostszy klasyfikator liniowy uczony przez korektę błędu (1958).","Nadzorowane","Klasyfikacja","Sieci neuronowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Naiwny Bayes","Klasyfikator probabilistyczny zakładający niezależność cech.","Nadzorowane","Klasyfikacja","Probabilistyczne","Tekst i sekwencje","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["k-NN","Klasyfikacja/regresja na podstawie k najbliższych sąsiadów.","Nadzorowane","Klasyfikacja","Oparte na instancjach","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Nieparametryczne"],
+ ["Drzewo decyzyjne (CART, C4.5)","Rekurencyjny podział przestrzeni cech według reguł.","Nadzorowane","Klasyfikacja","Drzewa i zespoły","Tabelaryczne","Biała skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Random Forest","Zespół drzew na losowych podpróbkach danych i cech (bagging).","Nadzorowane","Klasyfikacja","Drzewa i zespoły","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Gradient Boosting (XGBoost, LightGBM)","Sekwencyjne drzewa poprawiające błędy poprzedników.","Nadzorowane","Klasyfikacja","Drzewa i zespoły","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["AdaBoost","Boosting ważący błędnie sklasyfikowane przykłady.","Nadzorowane","Klasyfikacja","Drzewa i zespoły","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["SVM","Maksymalizacja marginesu między klasami; trik jądrowy.","Nadzorowane","Klasyfikacja","Metody jądrowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["Procesy Gaussa","Bayesowska regresja nieparametryczna z funkcją kowariancji.","Nadzorowane","Regresja","Metody jądrowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Sieci bayesowskie","Graf skierowany kodujący zależności warunkowe.","Nadzorowane","Klasyfikacja","Probabilistyczne","Tabelaryczne","Biała skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["Ukryte modele Markowa (HMM)","Sekwencje z ukrytymi stanami; algorytm Viterbiego.","Nienadzorowane","Modelowanie sekwencji","Probabilistyczne","Tekst i sekwencje","Biała skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["CRF","Warunkowe pola losowe do etykietowania sekwencji.","Nadzorowane","Modelowanie sekwencji","Probabilistyczne","Tekst i sekwencje","Szara skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["MLP","Wielowarstwowa sieć w pełni połączona; propagacja wsteczna.","Nadzorowane","Klasyfikacja","Sieci neuronowe","Tabelaryczne","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["CNN","Sieci splotowe do obrazów (LeNet, AlexNet, ResNet).","Nadzorowane","Klasyfikacja","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["RNN / LSTM / GRU","Sieci rekurencyjne z pamięcią dla sekwencji.","Nadzorowane","Modelowanie sekwencji","Sieci neuronowe","Tekst i sekwencje","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Transformer","Mechanizm uwagi zamiast rekurencji; podstawa LLM.","Samonadzorowane","Modelowanie sekwencji","Sieci neuronowe","Tekst i sekwencje","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["BERT","Enkoder transformera uczony maskowaniem tokenów.","Samonadzorowane","Modelowanie sekwencji","Sieci neuronowe","Tekst i sekwencje","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["GPT / LLM","Autoregresyjne modele językowe generujące tekst.","Samonadzorowane","Generowanie","Sieci neuronowe","Tekst i sekwencje","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Vision Transformer (ViT)","Transformer na łatach obrazu.","Nadzorowane","Klasyfikacja","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Graph Neural Network","Przekazywanie komunikatów po krawędziach grafu (GCN, GAT).","Nadzorowane","Klasyfikacja","Sieci neuronowe","Grafy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Autoenkoder","Kompresja do wektora ukrytego i rekonstrukcja.","Nienadzorowane","Redukcja wymiarowości","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["VAE","Wariacyjny autoenkoder – generatywny model z rozkładem ukrytym.","Nienadzorowane","Generowanie","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["GAN","Generator kontra dyskryminator w grze minimax.","Nienadzorowane","Generowanie","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Modele dyfuzyjne","Odszumianie krok po kroku (Stable Diffusion, DALL·E).","Samonadzorowane","Generowanie","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Normalizing Flows","Odwracalne transformacje rozkładu prostego w złożony.","Nienadzorowane","Generowanie","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Word2Vec","Osadzenia słów z kontekstu (skip-gram, CBOW).","Samonadzorowane","Redukcja wymiarowości","Sieci neuronowe","Tekst i sekwencje","Szara skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Uczenie kontrastowe (SimCLR, CLIP)","Reprezentacje przez zbliżanie par pozytywnych.","Samonadzorowane","Redukcja wymiarowości","Sieci neuronowe","Obrazy","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Sieć Hopfielda","Pamięć asocjacyjna; minimalizacja energii.","Nienadzorowane","Modelowanie sekwencji","Sieci neuronowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["Mapy samoorganizujące (SOM)","Nienadzorowana sieć rzutująca dane na siatkę 2D.","Nienadzorowane","Redukcja wymiarowości","Sieci neuronowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["k-średnich (k-means)","Podział na k klastrów wokół centroidów.","Nienadzorowane","Grupowanie","Oparte na instancjach","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["DBSCAN","Grupowanie oparte na gęstości; wykrywa szum.","Nienadzorowane","Grupowanie","Oparte na instancjach","Tabelaryczne","Biała skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Grupowanie hierarchiczne","Dendrogram: aglomeracyjne lub dzielące.","Nienadzorowane","Grupowanie","Oparte na instancjach","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Nieparametryczne"],
+ ["Mieszanina Gaussów (GMM / EM)","Miękkie klastry jako suma rozkładów normalnych.","Nienadzorowane","Grupowanie","Probabilistyczne","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Grupowanie spektralne","Klastrowanie na wektorach własnych Laplasjanu grafu.","Nienadzorowane","Grupowanie","Oparte na instancjach","Grafy","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["PCA","Rzutowanie na kierunki największej wariancji.","Nienadzorowane","Redukcja wymiarowości","Modele liniowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["ICA","Rozdzielanie niezależnych składowych sygnału.","Nienadzorowane","Redukcja wymiarowości","Modele liniowe","Tabelaryczne","Szara skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["t-SNE","Nieliniowa wizualizacja zachowująca lokalne sąsiedztwo.","Nienadzorowane","Redukcja wymiarowości","Oparte na instancjach","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["UMAP","Redukcja wymiarowości oparta na topologii rozmaitości.","Nienadzorowane","Redukcja wymiarowości","Oparte na instancjach","Tabelaryczne","Szara skrzynka","Głębokie uczenie","Nieparametryczne"],
+ ["LDA (tematy)","Ukryta alokacja Dirichleta – modelowanie tematów.","Nienadzorowane","Grupowanie","Probabilistyczne","Tekst i sekwencje","Szara skrzynka","Klasyczne uczenie maszynowe","Parametryczne"],
+ ["Apriori","Odkrywanie reguł asocjacyjnych (koszyk zakupów).","Nienadzorowane","Grupowanie","Symboliczne i logiczne","Tabelaryczne","Biała skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Isolation Forest","Wykrywanie anomalii przez losowe izolowanie punktów.","Nienadzorowane","Grupowanie","Drzewa i zespoły","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["ARIMA","Autoregresja i średnia ruchoma dla szeregów czasowych.","Nadzorowane","Regresja","Modele liniowe","Szeregi czasowe","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Filtr Kalmana","Rekurencyjna estymacja stanu w szumie.","Nadzorowane","Regresja","Probabilistyczne","Szeregi czasowe","Biała skrzynka","Klasyczna statystyka","Parametryczne"],
+ ["Q-learning","Uczenie wartości akcji bez modelu środowiska.","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Biała skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["SARSA","Odmiana on-policy Q-learningu.","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Biała skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Deep Q-Network (DQN)","Q-learning z siecią neuronową (Atari).","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Policy Gradient / REINFORCE","Bezpośrednia optymalizacja polityki.","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Actor-Critic / PPO / A3C","Aktor uczy polityki, krytyk ocenia wartość.","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["AlphaZero / MCTS","Przeszukiwanie drzewa Monte Carlo + sieć wartości.","Uczenie ze wzmocnieniem","Przeszukiwanie i planowanie","Uczenie ze wzmocnieniem","Środowisko / stan","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["RLHF","Uczenie ze wzmocnieniem z ludzkich ocen (dostrajanie LLM).","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Tekst i sekwencje","Czarna skrzynka","Głębokie uczenie","Parametryczne"],
+ ["Programowanie dynamiczne (Bellman)","Iteracja wartości i polityki przy znanym modelu.","Uczenie ze wzmocnieniem","Decyzje sekwencyjne","Uczenie ze wzmocnieniem","Środowisko / stan","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["A*","Przeszukiwanie grafu z heurystyką dopuszczalną.","Bez uczenia","Przeszukiwanie i planowanie","Symboliczne i logiczne","Grafy","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["BFS / DFS / Dijkstra","Klasyczne przeszukiwanie bez wiedzy heurystycznej.","Bez uczenia","Przeszukiwanie i planowanie","Symboliczne i logiczne","Grafy","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Minimax + α-β","Przeszukiwanie drzewa gry dla dwóch graczy.","Bez uczenia","Przeszukiwanie i planowanie","Symboliczne i logiczne","Środowisko / stan","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Systemy ekspertowe","Baza reguł JEŻELI–TO i silnik wnioskujący.","Bez uczenia","Wnioskowanie","Symboliczne i logiczne","Symbole i reguły","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Prolog / logika I rzędu","Wnioskowanie przez rezolucję i unifikację.","Bez uczenia","Wnioskowanie","Symboliczne i logiczne","Symbole i reguły","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Planowanie STRIPS / PDDL","Planowanie akcji w przestrzeni stanów.","Bez uczenia","Przeszukiwanie i planowanie","Symboliczne i logiczne","Symbole i reguły","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Spełnianie ograniczeń (CSP)","Propagacja ograniczeń i nawracanie (sudoku, harmonogramy).","Bez uczenia","Przeszukiwanie i planowanie","Symboliczne i logiczne","Symbole i reguły","Biała skrzynka","Symboliczna AI","Nieparametryczne"],
+ ["Logika rozmyta","Wnioskowanie na stopniach przynależności.","Bez uczenia","Wnioskowanie","Symboliczne i logiczne","Symbole i reguły","Biała skrzynka","Symboliczna AI","Parametryczne"],
+ ["Algorytmy genetyczne","Selekcja, krzyżowanie i mutacja populacji rozwiązań.","Bez uczenia","Optymalizacja","Ewolucyjne i rojowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Optymalizacja rojem cząstek (PSO)","Rój cząstek podążający za najlepszymi pozycjami.","Bez uczenia","Optymalizacja","Ewolucyjne i rojowe","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+ ["Symulowane wyżarzanie","Losowe przeszukiwanie z malejącą temperaturą.","Bez uczenia","Optymalizacja","Ewolucyjne i rojowe","Tabelaryczne","Biała skrzynka","Klasyczna statystyka","Nieparametryczne"],
+ ["Optymalizacja bayesowska","Model zastępczy (GP) + funkcja akwizycji; strojenie hiperparametrów.","Bez uczenia","Optymalizacja","Probabilistyczne","Tabelaryczne","Szara skrzynka","Klasyczne uczenie maszynowe","Nieparametryczne"],
+];
+
+const MODES = [
+  {key:"paradygmat", label:"Paradygmat uczenia", idx:2},
+  {key:"zadanie",    label:"Rodzaj zadania", idx:3},
+  {key:"rodzina",    label:"Rodzina modeli", idx:4},
+  {key:"dane",       label:"Typ danych", idx:5},
+  {key:"interp",     label:"Interpretowalność", idx:6},
+  {key:"era",        label:"Era / nurt", idx:7},
+  {key:"param",      label:"Parametryczność", idx:8},
+];
+const nodes = ALG.map((a,i)=>({id:i,name:a[0],desc:a[1],attrs:a}));
+const PAL = ["--c0","--c1","--c2","--c3","--c4","--c5","--c6","--c7","--c8"].map(v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+
+// ---------- STAN ----------
+let mode = MODES[0], highlight = null, query = "";
+document.getElementById("count").textContent = `${nodes.length} algorytmów`;
+
+// ---------- SVG ----------
+const svg = d3.select("#map");
+const root = svg.append("g");
+const hullsG = root.append("g");
+const titlesG = root.append("g");
+const nodesG = root.append("g");
+const tip = document.getElementById("tip");
+let W, H;
+function size(){ const r=svg.node().getBoundingClientRect(); W=r.width; H=r.height; }
+size();
+
+svg.call(d3.zoom().scaleExtent([0.3,3]).on("zoom",e=>root.attr("transform",e.transform)));
+
+const node = nodesG.selectAll("g.node").data(nodes).join("g").attr("class","node")
+  .call(d3.drag()
+    .on("start",(e,d)=>{ if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on("drag",(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+    .on("end",(e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=null; d.fy=null; }))
+  .on("mousemove",(e,d)=>showTip(e,d)).on("mouseleave",()=>tip.style.opacity=0);
+node.append("circle").attr("r",9);
+node.append("text").attr("dy",-14).attr("text-anchor","middle").text(d=>d.name);
+
+// ---------- SYMULACJA ----------
+let groups=[], centers=new Map();
+const sim = d3.forceSimulation(nodes)
+  .force("charge", d3.forceManyBody().strength(-60))
+  .force("collide", d3.forceCollide(34))
+  .force("x", d3.forceX(d=>(centers.get(groupOf(d))||{x:W/2}).x).strength(.14))
+  .force("y", d3.forceY(d=>(centers.get(groupOf(d))||{y:H/2}).y).strength(.14))
+  .on("tick", tick);
+
+function groupOf(d){ return d.attrs[mode.idx]; }
+function color(g){ return PAL[groups.indexOf(g) % PAL.length]; }
+
+function layoutCenters(){
+  groups = [...new Set(nodes.map(groupOf))];
+  // rozmieszczenie środków grup na elipsie + jedna w środku dla >6 grup
+  const n = groups.length, cx=W/2, cy=H/2, rx=W*0.34, ry=H*0.34;
+  centers = new Map();
+  groups.forEach((g,i)=>{
+    if(n>=6 && i===n-1){ centers.set(g,{x:cx,y:cy}); return; }
+    const m = n>=6 ? n-1 : n;
+    const a = -Math.PI/2 + i*2*Math.PI/m;
+    centers.set(g,{x:cx+rx*Math.cos(a), y:cy+ry*Math.sin(a)});
+  });
+}
+
+function applyMode(m){
+  mode=m; highlight=null;
+  layoutCenters();
+  document.querySelectorAll(".mode").forEach(b=>b.classList.toggle("active",b.dataset.key===m.key));
+  buildLegend();
+  node.select("circle").transition().duration(500).attr("fill",d=>color(groupOf(d)));
+  sim.force("x").initialize(nodes); sim.force("y").initialize(nodes);
+  sim.alpha(1).restart();
+  refreshDim();
+}
+
+function tick(){
+  node.attr("transform",d=>`translate(${d.x},${d.y})`);
+  // otoczki grup
+  const hulls = groups.map(g=>{
+    const pts = nodes.filter(d=>groupOf(d)===g).map(d=>[d.x,d.y]);
+    if(pts.length<3){ // sztuczne poszerzenie dla 1–2 punktów
+      pts.forEach(([x,y])=>pts.push([x+1,y+1],[x-1,y-1],[x+1,y-1]));
+    }
+    return {g, hull:d3.polygonHull(pts)};
+  }).filter(h=>h.hull);
+  hullsG.selectAll("path").data(hulls,h=>h.g).join("path").attr("class","hull")
+    .attr("fill",h=>color(h.g)).attr("stroke",h=>color(h.g))
+    .attr("d",h=>"M"+h.hull.map(p=>p.join(",")).join("L")+"Z")
+    .attr("stroke-linejoin","round").attr("stroke-width",28);
+  titlesG.selectAll("text").data(hulls,h=>h.g).join("text").attr("class","gtitle")
+    .attr("fill",h=>color(h.g)).attr("text-anchor","middle")
+    .attr("x",h=>d3.polygonCentroid(h.hull)[0])
+    .attr("y",h=>d3.min(h.hull,p=>p[1])-34)
+    .text(h=>h.g);
+}
+
+// ---------- UI ----------
+const modesEl = document.getElementById("modes");
+MODES.forEach(m=>{
+  const b=document.createElement("button"); b.className="mode"; b.dataset.key=m.key; b.textContent=m.label;
+  b.onclick=()=>applyMode(m); modesEl.appendChild(b);
+});
+function buildLegend(){
+  const el=document.getElementById("legend"); el.innerHTML="";
+  groups.forEach(g=>{
+    const n=nodes.filter(d=>groupOf(d)===g).length;
+    const row=document.createElement("div"); row.className="lg";
+    row.innerHTML=`<i style="background:${color(g)}"></i><b>${g}</b><span>${n}</span>`;
+    row.onclick=()=>{ highlight = highlight===g?null:g; refreshDim(); };
+    el.appendChild(row);
+  });
+  refreshDim();
+}
+function refreshDim(){
+  const q=query.toLowerCase();
+  node.classed("dim",d=>(highlight && groupOf(d)!==highlight) || (q && !d.name.toLowerCase().includes(q) && !d.desc.toLowerCase().includes(q)));
+  document.querySelectorAll(".lg").forEach((r,i)=>r.classList.toggle("muted",highlight && groups[i]!==highlight));
+}
+document.getElementById("search").addEventListener("input",e=>{ query=e.target.value.trim(); refreshDim(); });
+
+function showTip(e,d){
+  const tags = MODES.map(m=>`<span class="tag">${m.label}: <em>${d.attrs[m.idx]}</em></span>`).join("");
+  tip.innerHTML=`<h3>${d.name}</h3>${d.desc}<div class="tags">${tags}</div>`;
+  const r=svg.node().getBoundingClientRect();
+  let x=e.clientX-r.left+16, y=e.clientY-r.top+16;
+  if(x+330>r.width) x-=350; if(y+200>r.height) y-=220;
+  tip.style.left=x+"px"; tip.style.top=y+"px"; tip.style.opacity=1;
+}
+
+window.addEventListener("resize",()=>{ size(); layoutCenters(); sim.force("x").initialize(nodes); sim.force("y").initialize(nodes); sim.alpha(.5).restart(); });
+
+// start
+nodes.forEach(d=>{ d.x=W/2+(Math.random()-.5)*200; d.y=H/2+(Math.random()-.5)*200; });
+applyMode(MODES[0]);
+</script>
+</body>
+</html>

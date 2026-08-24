@@ -1,0 +1,110 @@
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Interaktywna mapa algorytmów sztucznej inteligencji z sześcioma sposobami klasyfikacji, kolory dodatkowo oznaczone ikonami dla dostępności</h2>
+<style>
+.chip{padding:7px 14px;border-radius:var(--radius);font-size:13px;cursor:pointer;border:0.5px solid transparent;display:inline-flex;align-items:center;will-change:transform;}
+.chip:hover{border-color:var(--border-strong);}
+.chip-blue{background:#E6F1FB;color:#0C447C;}
+.chip-orange{background:#FAEEDA;color:#633806;}
+.chip-coral{background:#FAECE7;color:#4A1B0C;}
+.chip-teal{background:#E1F5EE;color:#085041;}
+[data-mode="dark"] .chip-blue{background:#0C447C;color:#B5D4F4;}
+[data-mode="dark"] .chip-orange{background:#633806;color:#FAC775;}
+[data-mode="dark"] .chip-coral{background:#4A1B0C;color:#F0997B;}
+[data-mode="dark"] .chip-teal{background:#085041;color:#9FE1CB;}
+@media (prefers-color-scheme:dark){
+:root:not([data-mode]) .chip-blue{background:#0C447C;color:#B5D4F4;}
+:root:not([data-mode]) .chip-orange{background:#633806;color:#FAC775;}
+:root:not([data-mode]) .chip-coral{background:#4A1B0C;color:#F0997B;}
+:root:not([data-mode]) .chip-teal{background:#085041;color:#9FE1CB;}
+}
+.scheme-btn{font-size:13px;padding:7px 14px;}
+.scheme-btn.active{background:var(--fill-secondary);border-color:var(--border-accent);color:var(--text-accent);}
+.legend-item{display:inline-flex;align-items:center;gap:5px;}
+</style>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+  <button class="scheme-btn" id="btn-paradigm" onclick="setScheme('paradigm')">Sposób uczenia</button>
+  <button class="scheme-btn" id="btn-application" onclick="setScheme('application')">Zastosowanie</button>
+  <button class="scheme-btn" id="btn-approach" onclick="setScheme('approach')">Podejście techniczne</button>
+  <button class="scheme-btn" id="btn-era" onclick="setScheme('era')">Era powstania</button>
+  <button class="scheme-btn" id="btn-data" onclick="setScheme('data')">Ilość potrzebnych danych</button>
+  <button class="scheme-btn" id="btn-interpret" onclick="setScheme('interpret')">Interpretowalność</button>
+</div>
+<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin-bottom:20px;">
+  <span class="legend-item"><i class="ti ti-chart-dots" aria-hidden="true" style="font-size:14px;color:#378ADD;"></i>klasyczne statystyczne</span>
+  <span class="legend-item"><i class="ti ti-brain" aria-hidden="true" style="font-size:14px;color:#EF9F27;"></i>sieci neuronowe</span>
+  <span class="legend-item"><i class="ti ti-route" aria-hidden="true" style="font-size:14px;color:#D85A30;"></i>metaheurystyki i przeszukiwanie</span>
+  <span class="legend-item"><i class="ti ti-books" aria-hidden="true" style="font-size:14px;color:#1D9E75;"></i>symboliczne</span>
+</div>
+<div id="groups" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:20px;"></div>
+<script>
+const icons = {'Klasyczne statystyczne':'ti-chart-dots','Sieci neuronowe':'ti-brain','Metaheurystyki i przeszukiwanie':'ti-route','Symboliczne':'ti-books'};
+const algorithms = [
+{id:'lin',name:'Regresja liniowa',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Klasyczne (przed 1980)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'log',name:'Regresja logistyczna',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Klasyczne (przed 1980)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'tree',name:'Drzewa decyzyjne',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'rf',name:'Random forest',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Średnia interpretowalność'},
+{id:'svm',name:'SVM',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Średnia interpretowalność'},
+{id:'knn',name:'k-NN',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'nb',name:'Naive Bayes',color:'chip-blue',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'kmeans',name:'K-means',color:'chip-blue',paradigm:'Nienadzorowane',application:'Grupowanie i redukcja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Średnia interpretowalność'},
+{id:'dbscan',name:'DBSCAN',color:'chip-blue',paradigm:'Nienadzorowane',application:'Grupowanie i redukcja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Średnia interpretowalność'},
+{id:'pca',name:'PCA',color:'chip-blue',paradigm:'Nienadzorowane',application:'Grupowanie i redukcja',approach:'Klasyczne statystyczne',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Średnia interpretowalność'},
+{id:'mlp',name:'Sieć MLP',color:'chip-orange',paradigm:'Nadzorowane',application:'Klasyfikacja i regresja',approach:'Sieci neuronowe',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Niska interpretowalność'},
+{id:'cnn',name:'CNN',color:'chip-orange',paradigm:'Nadzorowane',application:'Widzenie komputerowe',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'rnn',name:'RNN / LSTM',color:'chip-orange',paradigm:'Nadzorowane',application:'Przetwarzanie języka',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'trans',name:'Transformery',color:'chip-orange',paradigm:'Nadzorowane',application:'Przetwarzanie języka',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'gan',name:'GAN',color:'chip-orange',paradigm:'Nienadzorowane',application:'Widzenie komputerowe',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'ae',name:'Autoenkoder',color:'chip-orange',paradigm:'Nienadzorowane',application:'Grupowanie i redukcja',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'dqn',name:'Deep Q-Network',color:'chip-orange',paradigm:'Ze wzmocnieniem',application:'Planowanie i gry',approach:'Sieci neuronowe',era:'Głębokie uczenie (2010+)',data:'Duże zbiory danych',interpret:'Niska interpretowalność'},
+{id:'ql',name:'Q-learning',color:'chip-coral',paradigm:'Ze wzmocnieniem',application:'Planowanie i gry',approach:'Metaheurystyki i przeszukiwanie',era:'Statystyczne ML (1980-2010)',data:'Umiarkowana ilość',interpret:'Średnia interpretowalność'},
+{id:'ga',name:'Algorytmy genetyczne',color:'chip-coral',paradigm:'Ewolucyjne / metaheurystyki',application:'Planowanie i gry',approach:'Metaheurystyki i przeszukiwanie',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Średnia interpretowalność'},
+{id:'sa',name:'Symulowane wyżarzanie',color:'chip-coral',paradigm:'Ewolucyjne / metaheurystyki',application:'Planowanie i gry',approach:'Metaheurystyki i przeszukiwanie',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Średnia interpretowalność'},
+{id:'astar',name:'Algorytm A*',color:'chip-coral',paradigm:'Ewolucyjne / metaheurystyki',application:'Planowanie i gry',approach:'Metaheurystyki i przeszukiwanie',era:'Klasyczne (przed 1980)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'expert',name:'Systemy eksperckie',color:'chip-teal',paradigm:'Symboliczne',application:'Wiedza i wnioskowanie',approach:'Symboliczne',era:'Klasyczne (przed 1980)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'bayesnet',name:'Sieci Bayesowskie',color:'chip-teal',paradigm:'Symboliczne',application:'Wiedza i wnioskowanie',approach:'Symboliczne',era:'Statystyczne ML (1980-2010)',data:'Mało danych',interpret:'Wysoka interpretowalność'},
+{id:'prolog',name:'Logika i Prolog',color:'chip-teal',paradigm:'Symboliczne',application:'Wiedza i wnioskowanie',approach:'Symboliczne',era:'Klasyczne (przed 1980)',data:'Mało danych',interpret:'Wysoka interpretowalność'}
+];
+const schemes = {
+paradigm:['Nadzorowane','Nienadzorowane','Ze wzmocnieniem','Ewolucyjne / metaheurystyki','Symboliczne'],
+application:['Klasyfikacja i regresja','Grupowanie i redukcja','Widzenie komputerowe','Przetwarzanie języka','Planowanie i gry','Wiedza i wnioskowanie'],
+approach:['Klasyczne statystyczne','Sieci neuronowe','Metaheurystyki i przeszukiwanie','Symboliczne'],
+era:['Klasyczne (przed 1980)','Statystyczne ML (1980-2010)','Głębokie uczenie (2010+)'],
+data:['Mało danych','Umiarkowana ilość','Duże zbiory danych'],
+interpret:['Wysoka interpretowalność','Średnia interpretowalność','Niska interpretowalność']
+};
+const fieldMap = {paradigm:'paradigm',application:'application',approach:'approach',era:'era',data:'data',interpret:'interpret'};
+const container = document.getElementById('groups');
+function render(scheme){
+  const field = fieldMap[scheme];
+  const oldRects = {};
+  document.querySelectorAll('.chip').forEach(el=>{oldRects[el.dataset.id]=el.getBoundingClientRect();});
+  const groups = schemes[scheme];
+  container.innerHTML = groups.map(g=>{
+    const items = algorithms.filter(a=>a[field]===g);
+    const chips = items.map(a=>'<div class="chip '+a.color+'" data-id="'+a.id+'" onclick="sendPrompt(\'Opowiedz więcej o algorytmie: '+a.name+'\')"><i class="ti '+icons[a.approach]+'" aria-hidden="true" style="margin-right:6px;font-size:13px;"></i>'+a.name+'</div>').join('');
+    return '<div><div style="font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:8px;">'+g+'</div><div style="display:flex;flex-wrap:wrap;gap:8px;">'+chips+'</div></div>';
+  }).join('');
+  document.querySelectorAll('.chip').forEach(el=>{
+    const id = el.dataset.id;
+    const old = oldRects[id];
+    if(old){
+      const now = el.getBoundingClientRect();
+      const dx = old.left - now.left;
+      const dy = old.top - now.top;
+      if(dx || dy){
+        el.style.transition = 'none';
+        el.style.transform = 'translate('+dx+'px,'+dy+'px)';
+        requestAnimationFrame(()=>{
+          el.style.transition = 'transform .35s ease';
+          el.style.transform = 'translate(0,0)';
+        });
+      }
+    }
+  });
+}
+function setScheme(scheme){
+  document.querySelectorAll('.scheme-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btn-'+scheme).classList.add('active');
+  render(scheme);
+}
+setScheme('paradigm');
+</script>
