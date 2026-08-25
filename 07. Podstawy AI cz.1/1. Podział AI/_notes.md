@@ -13,9 +13,11 @@ Podział ze względu na:
 
 
 Podział AI:
-    - xxx?
-        - klasyczne statystyczne
+    - paradygmat / podejście
+        - klasyczne statystyczne (przed głębokim uczeniem; proste, interpretowalne)
         - sieci neuronowe
+        - generatywne
+        - hybrydowe
         - metaheurystyki i przeszukiwanie ???
         - symboliczne
     - sposób uczenia
@@ -25,13 +27,11 @@ Podział AI:
         - nienadzorowane
         - półnadzorowane
         - ze wzmocnieniem
-        - ewolucyjne/metaheurystyki ???
-        - symboliczne
     - zastosowanie / rodzaj zadania
         - regresja
         - klasyfikacja
         - grupowanie
-        - redukcja
+        - redukcja wymiarowości
         - widzenie komputerowe
         - optymalizacja
         - przetwarzanie języka
@@ -39,15 +39,20 @@ Podział AI:
         - przeszukiwanie
         - planowanie
         - wnioskowanie
-        - decyzje
+        - podejmowanie decyzji
+        - systemy rekomendacyjne
     - ilość danych uczących
         - mało
         - średnio
         - dużo
     - interpretowalność
         - wysoka
-        - srednia
+        - średnia
         - niska
+    - stopień autonomii
+        - reaktywne / wspomagające
+        - półautonomiczne
+        - autonomiczne (agentowe)
 
 Algorytmy
     - regresja liniowa
