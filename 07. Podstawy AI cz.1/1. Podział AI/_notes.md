@@ -88,3 +88,8 @@ Algorytmy
     - systemy eksperckie
     - sieci Bayesowskie
     - logika i prolog
+
+
+
+[ ] Losowe lasy https://towardsdatascience.com/random-forest-explained-a-visual-guide-with-code-examples-9f736a6e1b3c/
+[ ] wyzarzanie symulowane https://cse442-17f.github.io/simulated-annealing/
