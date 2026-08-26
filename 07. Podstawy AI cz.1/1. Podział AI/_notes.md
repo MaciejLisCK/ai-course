@@ -14,7 +14,12 @@ Podział ze względu na:
 
 Podział AI:
     - paradygmat / podejście
-        - klasyczne statystyczne (przed głębokim uczeniem; proste, interpretowalne)
+        - symboliczne AKA GOFAI
+            - reguły
+            - logika
+            - wiedza ekspercka
+        - klasyczne uczenie maszynowe
+        - probabilistyczne
         - sieci neuronowe
         - generatywne
         - hybrydowe
@@ -53,6 +58,10 @@ Podział AI:
         - reaktywne / wspomagające
         - półautonomiczne
         - autonomiczne (agentowe)
+    - zakres możliwości (podział klasyczny)
+        - ANI
+        - AGI
+        - ASI
 
 Algorytmy
     - regresja liniowa
@@ -79,4 +88,3 @@ Algorytmy
     - systemy eksperckie
     - sieci Bayesowskie
     - logika i prolog
-
