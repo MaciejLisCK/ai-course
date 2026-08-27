@@ -1,3 +1,7 @@
+TODO - Do weryfikacji
+sprawdzić czy dodałem wszystkie algorytmy
+
+
 Uczenie
 - brak uczenia
     - A*

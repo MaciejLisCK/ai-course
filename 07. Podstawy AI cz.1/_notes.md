@@ -82,35 +82,6 @@ Podział AI:
         - tekst
         - sekwencyjne
 
-Algorytmy
-    - regresja liniowa
-    - regresja logistyczna
-    - drzewa decyzyjne
-    - losowe lasy
-    - SVM
-    - Gradient Boosting
-    - k-NN
-    - k-means
-    - Naive Bayes
-    - MLP
-    - CNN
-    - RNN / LSTM
-    - Transformery
-    - Q-learning
-    - Deep Q-Network
-    - DBSCAN
-    - PCA
-    - t-SNE
-    - UMAP
-    - GAN
-    - modele dyfuzyjne
-    - VAE
-    - algorytmy genetyczne
-    - Autoenkoder
-    - symulowane wyżarzanie
-    - algorytm A*
-    - systemy eksperckie
-    - logika i prolog
 
 
 
