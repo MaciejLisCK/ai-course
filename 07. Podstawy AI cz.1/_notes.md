@@ -19,12 +19,20 @@ Podział AI:
             - logika
             - wiedza ekspercka
         - klasyczne uczenie maszynowe
-        - probabilistyczne
-        - sieci neuronowe
         - generatywne
         - hybrydowe
-        - metaheurystyki i przeszukiwanie ???
-        - symboliczne
+        - metaheurystyki i przeszukiwanie
+        - probabilistyczne
+        - ssn
+    - rodzina modeli
+        - liniowe
+        - drzewiaste
+        - zespołowe
+        - jądrowe
+        - instancyjne
+        - probabilistyczne
+        - ssn
+        - RL
     - sposób uczenia
         - bez uczenia
         - nadzorowane
@@ -32,20 +40,26 @@ Podział AI:
         - nienadzorowane
         - półnadzorowane
         - ze wzmocnieniem
-    - zastosowanie / rodzaj zadania
+    - typ zadania
         - regresja
         - klasyfikacja
         - grupowanie
         - redukcja wymiarowości
-        - widzenie komputerowe
-        - optymalizacja
-        - przetwarzanie języka
-        - gry
+        - generacja
+        - wykrywanie anomalii
+        - modelowanie sekwencji
+        - rekomendacja
         - przeszukiwanie
+        - optymalizacja
         - planowanie
         - wnioskowanie
         - podejmowanie decyzji
-        - systemy rekomendacyjne
+    - zastosowanie
+        - przetwarzanie języka naturalnego
+        - widzenie komputerowe
+        - przetwarzanie mowy / audio
+        - robotyka
+        - gry
     - ilość danych uczących
         - mało
         - średnio
@@ -62,34 +76,48 @@ Podział AI:
         - ANI
         - AGI
         - ASI
+    - typ danych
+        - tabelaryczne
+        - obrazy
+        - tekst
+        - sekwencyjne
 
 Algorytmy
     - regresja liniowa
     - regresja logistyczna
     - drzewa decyzyjne
     - losowe lasy
-    - svm
+    - SVM
+    - Gradient Boosting
     - k-NN
+    - k-means
     - Naive Bayes
-    - sieć mlp
+    - MLP
     - CNN
     - RNN / LSTM
     - Transformery
-    - k średnie
+    - Q-learning
+    - Deep Q-Network
     - DBSCAN
     - PCA
+    - t-SNE
+    - UMAP
     - GAN
-    - Autoenkoder
-    - Deep Q-Network
-    - Q-learning
+    - modele dyfuzyjne
+    - VAE
     - algorytmy genetyczne
+    - Autoenkoder
     - symulowane wyżarzanie
     - algorytm A*
     - systemy eksperckie
-    - sieci Bayesowskie
     - logika i prolog
+
+
+
+
 
 
 
 [ ] Losowe lasy https://towardsdatascience.com/random-forest-explained-a-visual-guide-with-code-examples-9f736a6e1b3c/
 [ ] wyzarzanie symulowane https://cse442-17f.github.io/simulated-annealing/
+[ ] naive bayes https://towardsdatascience.com/gaussian-naive-bayes-explained-a-visual-guide-with-code-examples-for-beginners-04949cef383c/
