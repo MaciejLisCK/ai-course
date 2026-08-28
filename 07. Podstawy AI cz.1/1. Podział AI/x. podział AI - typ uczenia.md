@@ -1,39 +1,37 @@
-TODO - Do weryfikacji
-sprawdzić czy dodałem wszystkie algorytmy
-
-
 Uczenie
 - brak uczenia
-    - A*
-    - systemy eksperckie
-    - sieci Bayesowskie
-    - logika i prolog
-- nadzorowane
-    - regresja liniowa
-    - regresja logistyczna
-    - drzewa decyzyjne
-    - losowe lasy
-    - SVM
-    - k-NN
-    - Naive Bayes
-    - MLP
-    - CNN
-    - RNN / LSTM
-    - Transformery
-- samonadzorowane
-    - GAN
-    - VAE
-- nienadzorowane
-    - k średnie
-    - grupowanie hierarchiczne
-    - DBSCAN
-    - PCA
-    - Autoenkoder
-- półnadzorowane
-- ze wzmocnieniem
-    - Deep Q-Network
-    - Q-learning
-    - algorytmy genetyczne
-    - symulowane wyżarzanie
-    - algorytm A*
-    - systemy eksperckie
+    - wiedza pochodząca od ekspertów, zahardcodowana
+        - systemy eksperckie
+        - sieci Bayesowskie (też uczone z danych)
+        - logika i prolog
+    - przeszukiwanie / optymalizacja
+        - A*
+        - symulowane wyżarzanie
+        - algorytmy genetyczne
+- uczenie (machine learning)
+    - nadzorowane
+        - regresja liniowa
+        - regresja logistyczna
+        - drzewa decyzyjne
+        - losowe lasy
+        - SVM
+        - k-NN
+        - Naive Bayes
+        - Gradient Boosting
+        - SSN
+    - samonadzorowane
+        - Autoenkoder
+        - VAE
+        - modele dyfuzyjne
+        - Transformery
+    - nienadzorowane
+        - GAN
+        - k-means
+        - DBSCAN
+        - PCA
+        - t-SNE
+        - UMAP
+    - półnadzorowane
+    - ze wzmocnieniem
+        - Q-learning
+        - Deep Q-Network
