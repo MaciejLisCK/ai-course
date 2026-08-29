@@ -27,13 +27,13 @@ Sposób wnioskowania
     - algorytmy genetyczne
     - symulowane wyżarzanie
     - algorytm A*
+    - Q-learning
+    - Deep Q-Network
 
 - kodowanie do przestrzeni latentnej i dekodowanie
 
 
 Algorytmy, grupy algorytmów, architektury
-    - Q-learning
-    - Deep Q-Network
     - GAN
     - modele dyfuzyjne
     - Autoenkoder
