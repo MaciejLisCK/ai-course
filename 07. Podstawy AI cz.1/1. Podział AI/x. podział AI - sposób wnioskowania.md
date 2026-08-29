@@ -20,6 +20,9 @@ Sposób wnioskowania
     - RNN
     - Transformery
     - GAN
+    - Autoenkoder
+    - VAE
+    - modele dyfuzyjne
 - przekształcenie przestrzeni wysokowymiarowych na interpretowalne, niskowymiarowe 
     - PCA
     - t-SNE
@@ -30,11 +33,3 @@ Sposób wnioskowania
     - algorytm A*
     - Q-learning
     - Deep Q-Network
-
-- kodowanie do przestrzeni latentnej i dekodowanie
-
-
-Algorytmy, grupy algorytmów, architektury
-    - modele dyfuzyjne
-    - Autoenkoder
-    - VAE
