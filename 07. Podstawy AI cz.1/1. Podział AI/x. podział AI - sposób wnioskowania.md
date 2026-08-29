@@ -6,12 +6,14 @@ Sposób wnioskowania
     - k-NN
     - k-means
     - DBSCAN
-- reguły i podziały przestrzeni (if/else)
+    - SVM
+- reguły (if/else)
     - drzewa decyzyjne
     - losowe lasy
     - Gradient Boosting
     - systemy eksperckie
     - logika i prolog
+    - Naive Bayes
 - propagacja neuronowa - ciąg przekształceń wektorowych
     - MLP
     - CNN
@@ -30,12 +32,7 @@ Sposób wnioskowania
 
 
 Algorytmy, grupy algorytmów, architektury
-
-
-    - SVM
-    - Naive Bayes
     - Q-learning
-
     - Deep Q-Network
     - GAN
     - modele dyfuzyjne
