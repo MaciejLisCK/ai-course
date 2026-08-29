@@ -18,7 +18,9 @@ Uczenie
         - k-NN
         - Naive Bayes
         - Gradient Boosting
-        - SSN
+        - MLP
+        - CNN
+        - RNN
     - samonadzorowane
         - Autoenkoder
         - VAE

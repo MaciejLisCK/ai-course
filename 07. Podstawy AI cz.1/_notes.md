@@ -15,9 +15,6 @@ Podział ze względu na:
 Podział AI:
     - paradygmat / podejście
         - symboliczne AKA GOFAI
-            - reguły
-            - logika
-            - wiedza ekspercka
         - klasyczne uczenie maszynowe
         - generatywne
         - hybrydowe

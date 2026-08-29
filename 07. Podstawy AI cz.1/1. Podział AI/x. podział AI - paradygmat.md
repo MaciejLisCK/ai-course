@@ -1,0 +1,36 @@
+Paradygmat / podejście
+    - symboliczne AKA GOFAI
+        - systemy eksperckie
+        - logika i prolog
+        - algorytm A*
+    - klasyczne uczenie maszynowe
+        - regresja liniowa
+        - regresja logistyczna
+        - drzewa decyzyjne
+        - losowe lasy
+        - Gradient Boosting
+        - SVM
+        - k-NN
+        - k-means
+        - DBSCAN
+        - PCA
+        - t-SNE
+        - UMAP
+    - probabilistyczne
+        - Naive Bayes
+    - ssn
+        - MLP
+        - CNN
+        - RNN
+        - Transformery
+        - Autoenkoder
+    - generatywne
+        - GAN
+        - modele dyfuzyjne
+        - VAE
+    - metaheurystyki i przeszukiwanie
+        - algorytmy genetyczne
+        - symulowane wyżarzanie
+    - hybrydowe / RL (poza 7 paradygmatami)
+        - Q-learning
+        - Deep Q-Network

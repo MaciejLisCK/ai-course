@@ -1,0 +1,34 @@
+Interpretowalność
+    - wysoka
+        - regresja liniowa
+        - regresja logistyczna
+        - drzewa decyzyjne
+        - Naive Bayes
+        - k-NN
+        - algorytm A*
+        - systemy eksperckie
+        - logika i prolog
+    - średnia
+        - losowe lasy
+        - Gradient Boosting
+        - SVM
+        - k-means
+        - DBSCAN
+        - PCA
+        - t-SNE
+        - UMAP
+        - Q-learning
+        - algorytmy genetyczne
+        - symulowane wyżarzanie
+    - niska
+        - MLP
+        - CNN
+        - RNN
+        - Transformery
+        - Deep Q-Network
+        - GAN
+        - modele dyfuzyjne
+        - Autoenkoder
+        - VAE
+
+
