@@ -10,7 +10,8 @@ Sposób wnioskowania
     - drzewa decyzyjne
     - losowe lasy
     - Gradient Boosting
-    - SVM
+    - systemy eksperckie
+    - logika i prolog
 - propagacja neuronowa - ciąg przekształceń wektorowych
     - MLP
     - CNN
@@ -29,11 +30,12 @@ Sposób wnioskowania
 
 
 Algorytmy, grupy algorytmów, architektury
-    - systemy eksperckie
-    - logika i prolog
 
+
+    - SVM
     - Naive Bayes
     - Q-learning
+
     - Deep Q-Network
     - GAN
     - modele dyfuzyjne
