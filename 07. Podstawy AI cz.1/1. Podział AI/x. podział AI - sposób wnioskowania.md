@@ -19,6 +19,7 @@ Sposób wnioskowania
     - CNN
     - RNN
     - Transformery
+    - GAN
 - przekształcenie przestrzeni wysokowymiarowych na interpretowalne, niskowymiarowe 
     - PCA
     - t-SNE
@@ -34,7 +35,6 @@ Sposób wnioskowania
 
 
 Algorytmy, grupy algorytmów, architektury
-    - GAN
     - modele dyfuzyjne
     - Autoenkoder
     - VAE
