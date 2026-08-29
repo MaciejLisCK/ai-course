@@ -21,6 +21,17 @@ Podział AI:
         - metaheurystyki i przeszukiwanie
         - probabilistyczne
         - ssn
+    - sposób uczenia
+        - bez uczenia
+        - nadzorowane
+        - samonadzorowane
+        - nienadzorowane
+        - półnadzorowane
+        - ze wzmocnieniem
+    - interpretowalność
+        - wysoka
+        - średnia
+        - niska
     - rodzina modeli
         - liniowe
         - drzewiaste
@@ -30,13 +41,6 @@ Podział AI:
         - probabilistyczne
         - ssn
         - RL
-    - sposób uczenia
-        - bez uczenia
-        - nadzorowane
-        - samonadzorowane
-        - nienadzorowane
-        - półnadzorowane
-        - ze wzmocnieniem
     - typ zadania
         - regresja
         - klasyfikacja
@@ -61,10 +65,6 @@ Podział AI:
         - mało
         - średnio
         - dużo
-    - interpretowalność
-        - wysoka
-        - średnia
-        - niska
     - stopień autonomii
         - reaktywne / wspomagające
         - półautonomiczne
