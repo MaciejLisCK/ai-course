@@ -54,8 +54,9 @@ Uczenie
 - algorytmy genetyczne
     metaheurystyka, rozwiązania ewoluują poprzez iteracyjne łączenie cech najlepszych rozwiązań
 - regresja liniowa
-    
+    iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych 
 - regresja logistyczna
+    iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych
 - drzewa decyzyjne
 - losowe lasy
 - SVM
