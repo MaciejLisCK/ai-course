@@ -58,7 +58,9 @@ Uczenie
 - regresja logistyczna
     iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych
 - drzewa decyzyjne
+    iteracyjne tworzenie drzewa na podstawie danych treningowych
 - losowe lasy
+    iteracyjne tworzenie drzew na podstawie danych treningowych
 - SVM
 - k-NN
 - Naive Bayes
