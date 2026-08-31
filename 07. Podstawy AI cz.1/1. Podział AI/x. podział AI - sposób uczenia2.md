@@ -66,6 +66,7 @@ Uczenie
 - k-NN
     brak, metoda przechowywanie wszystkie dane
 - Naive Bayes
+    uczenie na podstawie zbioru treningowego jak często cechy występują w danej klasie a potem łaczenie częstości, żeby wybrać najbardziej prawdopodobną klasę
 - Gradient Boosting
 - MLP
 - CNN
