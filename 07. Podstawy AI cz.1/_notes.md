@@ -80,8 +80,11 @@ Podział AI:
         - sekwencyjne
 
 
-
-
+Pytania do algorytmów:
+- jak wygląda struktura modelu
+- skąd brane są dane do uczenia
+- jak działa uczenie
+- jak działa wnioskowanie
 
 
 
