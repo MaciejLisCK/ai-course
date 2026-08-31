@@ -62,7 +62,9 @@ Uczenie
 - losowe lasy
     iteracyjne tworzenie drzew na podstawie danych treningowych
 - SVM
+    znalezienie punktów na granicy różnych klas i maksymalizacja margines po obu stronach
 - k-NN
+    brak, metoda przechowywanie wszystkie dane
 - Naive Bayes
 - Gradient Boosting
 - MLP
