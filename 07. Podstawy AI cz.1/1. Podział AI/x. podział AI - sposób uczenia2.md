@@ -68,6 +68,7 @@ Uczenie
 - Naive Bayes
     uczenie na podstawie zbioru treningowego jak często cechy występują w danej klasie a potem łaczenie częstości, żeby wybrać najbardziej prawdopodobną klasę
 - Gradient Boosting
+    iteracyjne tworzenie drzewa zmniejszające błąd poprzedniego drzewa
 - MLP
 - CNN
 - RNN
