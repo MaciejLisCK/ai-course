@@ -70,8 +70,11 @@ Uczenie
 - Gradient Boosting
     iteracyjne tworzenie drzewa zmniejszające błąd poprzedniego drzewa
 - MLP
+    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - CNN
+    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - RNN
+    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - Autoenkoder
 - VAE
 - modele dyfuzyjne
