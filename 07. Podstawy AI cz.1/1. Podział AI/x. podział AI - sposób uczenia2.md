@@ -76,6 +76,7 @@ Uczenie
 - RNN
     dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - Autoenkoder
+    dla każdego przykładu treningowego obliczana jest różnica między wyjściem sieci a oczekiwanym wynikiem, a następnie modyfikowane są wagi dekodera, a później enkodera tak aby lepiej pasować do przykładu treningowego
 - VAE
 - modele dyfuzyjne
 - Transformery
