@@ -41,44 +41,46 @@ Uczenie
 
 
 - systemy eksperckie
-    zapisana przez ekspertów z danej dziedziny
+    - zapisana przez ekspertów z danej dziedziny
 - sieci Bayesowskie
-    struktura grafu o parametry prawdopowobieństw
-    zapisane przez ekspertów lub dopasowania do danych testowych
+    - struktura grafu o parametry prawdopowobieństw
+    - zapisane przez ekspertów lub dopasowania do danych testowych
 - logika i prolog
-    zapisana przez ekspertów
+    - zapisana przez ekspertów
 - A*
-    brak, algorytm zapisany przez programistów
+    - brak, algorytm zapisany przez programistów
 - symulowane wyżarzanie
-    metaheurystyka, przeszukuje przestrzeń rozwiązań, stopniowo zmniejszając skłonność do akceptowania gorszych rozwiązań
+    - metaheurystyka, przeszukuje przestrzeń rozwiązań, stopniowo zmniejszając skłonność do akceptowania gorszych rozwiązań
 - algorytmy genetyczne
-    metaheurystyka, rozwiązania ewoluują poprzez iteracyjne łączenie cech najlepszych rozwiązań
+    - metaheurystyka, rozwiązania ewoluują poprzez iteracyjne łączenie cech najlepszych rozwiązań
 - regresja liniowa
-    iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych 
+    - iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych 
 - regresja logistyczna
-    iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych
+    - iteracyjne dostrajanie parametrów funkcji na podstawie danych treningowych
 - drzewa decyzyjne
-    iteracyjne tworzenie drzewa na podstawie danych treningowych
+    - iteracyjne tworzenie drzewa na podstawie danych treningowych
 - losowe lasy
-    iteracyjne tworzenie drzew na podstawie danych treningowych
+    - iteracyjne tworzenie drzew na podstawie danych treningowych
 - SVM
-    znalezienie punktów na granicy klas i maksymalizacja marginesu po obu stronach
+    - znalezienie punktów na granicy klas i maksymalizacja marginesu po obu stronach
 - k-NN
-    brak, metoda przechowywuje wszystkie dane
+    - brak, metoda przechowywuje wszystkie dane
 - Naive Bayes
-    uczenie na podstawie zbioru treningowego jak często cechy występują w danej klasie a potem łaczenie częstości, żeby wybrać najbardziej prawdopodobną klasę
+    - uczenie na podstawie zbioru treningowego jak często cechy występują w danej klasie a potem łaczenie częstości, żeby wybrać najbardziej prawdopodobną klasę
 - Gradient Boosting
-    iteracyjne tworzenie drzewa zmniejszające błąd poprzedniego drzewa
+    - iteracyjne tworzenie drzewa zmniejszające błąd poprzedniego drzewa
 - MLP
-    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
+    - dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - CNN
-    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
+    - dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - RNN
-    dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
+    - dla każdego przykładu treningowego wagi są modyfikowane tak, by zmniejszyć różnicę między wyjściem sieci a oczekiwanym wynikiem  
 - Autoenkoder
-    dla każdego przykładu treningowego obliczana jest różnica między wyjściem sieci a oczekiwanym wynikiem, a następnie modyfikowane są wagi dekodera, a później enkodera tak aby lepiej pasować do przykładu treningowego
+    - dla każdego przykładu treningowego obliczana jest różnica między wyjściem sieci a oczekiwanym wynikiem, a następnie modyfikowane są wagi dekodera, a później enkodera tak aby lepiej pasować do przykładu treningowego
 - VAE
+    - dla każdego przykładu treningowego obliczany jest błąd odtworzenia danych i błąd rozkładu latentnego, a następnie modyfikowane są wagi dekodera i enkodera tak aby poprawić rekonstrukcję i jednocześnie uporządkować przestrzeń latentną
 - modele dyfuzyjne
+    - dla każdego obrazu ze zbioru treningowego: wylosuj stopień zaszumienia, zaszum obraz, wyślij do SSN zaszumiony obraz i stopień zaszumienia (oraz opis, jeśli model jest warunkowany tekstem), oblicz błąd między szumem dodanym a przewidzianym i popraw wagi
 - Transformery
 - GAN
 - k-means
