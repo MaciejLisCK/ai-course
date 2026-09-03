@@ -86,6 +86,7 @@ Uczenie
 - GAN
     - naprzemiennie uczy się dyskriminator i generator: dyskriminator uczy się odróżniać obrazy prawdziwe od fałszywych, generator uczy się tworzyć lepsze obrazy, koniec jest wtedy gdy dyskryminator nie jest w stanie już odróżnić prawdziwych od fałszywych obrazów 
 - k-means
+    - wybierz k losowych punktów jako centroidy; powtarzaj: przypisz każdy przykład do najbliższego centroidu, przesuń każdy centroid do średniej przypisanych mu przykładów
 - DBSCAN
 - PCA
 - t-SNE
