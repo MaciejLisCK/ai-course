@@ -82,7 +82,9 @@ Uczenie
 - modele dyfuzyjne
     - dla każdego obrazu ze zbioru treningowego: wylosuj stopień zaszumienia, zaszum obraz, wyślij do SSN zaszumiony obraz i stopień zaszumienia (oraz opis, jeśli model jest warunkowany tekstem), oblicz błąd między szumem dodanym a przewidzianym i popraw wagi
 - Transformery
+    - dla każdego fragmentu tekstu: podaj SSN ciąg tokenów, każ jej zgadnąć kolejny token, porównaj z tokenem prawdziwym i popraw wagi
 - GAN
+
 - k-means
 - DBSCAN
 - PCA
