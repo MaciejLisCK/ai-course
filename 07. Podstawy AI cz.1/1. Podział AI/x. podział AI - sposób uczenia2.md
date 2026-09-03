@@ -84,7 +84,7 @@ Uczenie
 - Transformery
     - dla każdego fragmentu tekstu: podaj SSN ciąg tokenów, każ jej zgadnąć kolejny token, porównaj z tokenem prawdziwym i popraw wagi
 - GAN
-
+    - naprzemiennie uczy się dyskriminator i generator: dyskriminator uczy się odróżniać obrazy prawdziwe od fałszywych, generator uczy się tworzyć lepsze obrazy, koniec jest wtedy gdy dyskryminator nie jest w stanie już odróżnić prawdziwych od fałszywych obrazów 
 - k-means
 - DBSCAN
 - PCA
