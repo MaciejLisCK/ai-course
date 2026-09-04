@@ -91,8 +91,9 @@ Uczenie
     - algorytm tworzy klastry; wybiera losowy punkt i oznacza wszystkie punkty w jego promieniu, następnie przechodzi przez punkty i robi to samo, jak zabraknie punktów bierze znów losowy i oznacza go jako kolejny klaster
     - poprzez generowanie klastrów z punktów bliskich sobie
 - PCA
-    - szukanie takiej rotacji układu współrzędnych, żeby pierwsza oś "łapała" jak najwięcej zmienności danych, druga – jak najwięcej z pozostałej, i tak dalej.
+    - uczenie przez rotację układu współrzędnych, żeby pierwsza oś "łapała" jak najwięcej zmienności danych, druga – jak najwięcej z pozostałej, i tak dalej.
 - t-SNE
+    - iteracyjnie: punkty podobne w przestrzeni oryginalnej, a oddalone w przestrzeni docelowej, są przyciągane; punkty niepodobne, a bliskie w przestrzeni docelowej, są odpychane
 - UMAP
 - Q-learning
 - Deep Q-Network
