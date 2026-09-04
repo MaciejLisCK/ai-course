@@ -97,4 +97,5 @@ Uczenie
 - UMAP
     - iteracyjnie: punkty podobne w przestrzeni oryginalnej, a oddalone w przestrzeni docelowej, są przyciągane; punkty niepodobne, a bliskie w przestrzeni docelowej, są odpychane; struktura danych: graf ważony
 - Q-learning
+    - agent w danym stanie wybiera akcję, przechodzi do nowego stanu i aktualizuje wartość Q(stan, akcja) na podstawie nagrody (jeśli występuje) oraz wartości nowego stanu
 - Deep Q-Network
