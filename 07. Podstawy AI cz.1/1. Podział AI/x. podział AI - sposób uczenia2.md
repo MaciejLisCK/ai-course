@@ -89,8 +89,9 @@ Uczenie
     - wybierz k losowych punktów jako centroidy; powtarzaj: przypisz każdy przykład do najbliższego centroidu, przesuń każdy centroid do średniej przypisanych mu przykładów
 - DBSCAN
     - algorytm tworzy klastry; wybiera losowy punkt i oznacza wszystkie punkty w jego promieniu, następnie przechodzi przez punkty i robi to samo, jak zabraknie punktów bierze znów losowy i oznacza go jako kolejny klaster
-    - algorytm wybiera losowy nieodwiedzony punkt zakłada klaster i dołącza sąsiadów, potem przechodzi przez dołączone punkty i robi to samo z każdym, który też ma dość sąsiadów; gdy klaster przestaje rosnąć, bierze kolejny losowy punkt; punkty bez dość sąsiadów, których nikt nie wciągnął, zostają szumem
+    - poprzez generowanie klastrów z punktów bliskich sobie
 - PCA
+    - szukanie takiej rotacji układu współrzędnych, żeby pierwsza oś "łapała" jak najwięcej zmienności danych, druga – jak najwięcej z pozostałej, i tak dalej.
 - t-SNE
 - UMAP
 - Q-learning
