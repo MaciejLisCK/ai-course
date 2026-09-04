@@ -99,3 +99,4 @@ Uczenie
 - Q-learning
     - agent w danym stanie wybiera akcję, przechodzi do nowego stanu i aktualizuje wartość Q(stan, akcja) na podstawie nagrody (jeśli występuje) oraz wartości nowego stanu
 - Deep Q-Network
+    - agent w danym stanie wybiera akcję, przechodzi do nowego stanu i zapisuje w buforze przejście (stan, akcja, nagroda, nowy stan); na podstawie próbek z bufora uczy się SSN, aproksymująca wartość Q(stan, akcja)
