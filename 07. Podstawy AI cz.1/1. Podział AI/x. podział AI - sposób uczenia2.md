@@ -93,7 +93,8 @@ Uczenie
 - PCA
     - uczenie przez rotację układu współrzędnych, żeby pierwsza oś "łapała" jak najwięcej zmienności danych, druga – jak najwięcej z pozostałej, i tak dalej.
 - t-SNE
-    - iteracyjnie: punkty podobne w przestrzeni oryginalnej, a oddalone w przestrzeni docelowej, są przyciągane; punkty niepodobne, a bliskie w przestrzeni docelowej, są odpychane
+    - iteracyjnie: punkty podobne w przestrzeni oryginalnej, a oddalone w przestrzeni docelowej, są przyciągane; punkty niepodobne, a bliskie w przestrzeni docelowej, są odpychane; struktura danych: prawdopodobieństwa
 - UMAP
+    - iteracyjnie: punkty podobne w przestrzeni oryginalnej, a oddalone w przestrzeni docelowej, są przyciągane; punkty niepodobne, a bliskie w przestrzeni docelowej, są odpychane; struktura danych: graf ważony
 - Q-learning
 - Deep Q-Network
