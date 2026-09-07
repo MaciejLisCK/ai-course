@@ -1,0 +1,1 @@
+W 2011 IBM Watson używający do przetwarzania języka naturalnego Prologa wygrał teleturniej Jeopardy! (polski Va Banque). 
