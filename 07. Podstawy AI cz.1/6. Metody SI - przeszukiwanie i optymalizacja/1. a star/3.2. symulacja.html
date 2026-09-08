@@ -1,0 +1,87 @@
+<h2 class="sr-only" style="position:absolute;left:-9999px">Interaktywna symulacja algorytmu A* na siatce: krokowe przeszukiwanie od startu do celu z listą otwartą i zamkniętą.</h2>
+<style>
+#astar{font-family:var(--font-sans,system-ui,sans-serif);color:var(--text-primary,#1a1a1a)}
+#astar .cell{width:38px;height:38px;border:1px solid var(--border-strong,#b4b2a9);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;line-height:1;cursor:pointer;user-select:none;box-sizing:border-box;background:var(--surface-2,#ffffff);color:var(--text-secondary,#5f5e5a)}
+#astar .cell.wall{background:#444441;border-color:#444441}
+#astar .cell.open{background:#EEEDFE;color:#3C3489;border:2px dashed #7F77DD}
+#astar .cell.closed{background:#F1EFE8;color:#5F5E5A;border:1px solid #888780}
+#astar .cell.cur{border:3px solid #04342C;color:#04342C;background:#E1F5EE}
+#astar .cell.path{background:#0F6E56;color:#E1F5EE;border-color:#0F6E56}
+#astar .cell .big{font-size:14px;font-weight:500}
+#astar .cell .se{font-size:16px;font-weight:500;color:#1a1a1a}
+#astar .cell.path .se,#astar .cell.cur .se{color:inherit}
+#astar .leg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary,#5f5e5a);margin-right:10px;margin-bottom:4px}
+#astar .leg span{width:16px;height:16px;border-radius:3px;display:inline-block;box-sizing:border-box}
+#astar button{font-size:14px;padding:6px 12px;border:1px solid var(--border-strong,#b4b2a9);border-radius:var(--radius,8px);background:var(--surface-2,#fff);color:inherit;cursor:pointer}
+</style>
+<div id="astar">
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+<button id="step">▶ Krok</button>
+<button id="play">▶▶ Auto</button>
+<button id="reset">↺ Reset</button>
+<button id="hmode" title="Przełącz heurystykę">h: Manhattan</button>
+</div>
+<div id="grid" style="display:grid;grid-template-columns:repeat(9,38px);gap:2px;margin-bottom:10px"></div>
+<div style="margin-bottom:10px">
+<div class="leg"><span style="border:2px dashed #7F77DD;background:#EEEDFE"></span>otwarta</div>
+<div class="leg"><span style="background:#F1EFE8;border:1px solid #888780"></span>zamknięta</div>
+<div class="leg"><span style="border:3px solid #04342C;background:#E1F5EE"></span>bieżący</div>
+<div class="leg"><span style="background:#0F6E56"></span>ścieżka</div>
+<div class="leg"><span style="background:#444441"></span>ściana (tapnij)</div>
+</div>
+<div id="info" style="font-size:14px;color:var(--text-secondary,#5f5e5a);min-height:44px;line-height:1.5"></div>
+<div style="font-size:12px;color:var(--text-muted,#888780);margin-top:6px">W komórce: góra-lewo g, góra-prawo h, dół f.</div>
+</div>
+<script>
+const W=9,H=7,S=[0,3],G=[8,3];
+let walls=new Set(["3,1","3,2","3,3","3,4","5,3","5,4","5,5","5,6"]);
+let manhattan=true,steps=[],idx=-1,timer=null;
+const key=(x,y)=>x+","+y;
+function h(x,y){const dx=Math.abs(x-G[0]),dy=Math.abs(y-G[1]);return manhattan?dx+dy:Math.round(Math.sqrt(dx*dx+dy*dy)*10)/10}
+function compute(){
+ steps=[];const g={},f={},par={},open=new Set(),closed=new Set();
+ const sk=key(...S);g[sk]=0;f[sk]=h(...S);open.add(sk);
+ const snap=(cur,msg,path)=>steps.push({open:new Set(open),closed:new Set(closed),g:{...g},f:{...f},cur,msg,path});
+ snap(null,"Start: lista otwarta zawiera tylko start (g=0, f=h).");
+ while(open.size){
+  let cur=null;for(const k of open)if(cur===null||f[k]<f[cur]||(f[k]===f[cur]&&(f[k]-g[k])<(f[cur]-g[cur])))cur=k;
+  const [x,y]=cur.split(",").map(Number);
+  open.delete(cur);closed.add(cur);
+  if(cur===key(...G)){const p=[];let k=cur;while(k){p.push(k);k=par[k]}snap(cur,"Cel osiągnięty. Ścieżka o koszcie "+g[cur]+" odtworzona po wskaźnikach do rodziców. Rozwinięto "+closed.size+" pól.",p);return}
+  let added=[];
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const nx=x+dx,ny=y+dy,nk=key(nx,ny);
+   if(nx<0||ny<0||nx>=W||ny>=H||walls.has(nk)||closed.has(nk))continue;
+   const ng=g[cur]+1;
+   if(!open.has(nk)||ng<g[nk]){g[nk]=ng;f[nk]=ng+h(nx,ny);par[nk]=cur;open.add(nk);added.push("("+nx+","+ny+") f="+f[nk])}
+  }
+  snap(cur,"Wybrano ("+x+","+y+") z najmniejszym f="+f[cur]+" (g="+g[cur]+", h="+h(x,y)+"). "+(added.length?"Do listy otwartej: "+added.join(", ")+".":"Brak nowych sąsiadów."));
+ }
+ snap(null,"Lista otwarta pusta – ścieżka nie istnieje.");
+}
+const grid=document.getElementById("grid"),info=document.getElementById("info"),playBtn=document.getElementById("play");
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){const d=document.createElement("div");d.className="cell";d.dataset.k=key(x,y);d.onclick=()=>{const k=key(x,y);if(k===key(...S)||k===key(...G))return;walls.has(k)?walls.delete(k):walls.add(k);reset()};grid.appendChild(d)}
+function render(){
+ const st=steps[idx];
+ for(const d of grid.children){const k=d.dataset.k;d.className="cell";d.innerHTML="";
+  if(walls.has(k)){d.classList.add("wall");continue}
+  if(k===key(...S)){d.innerHTML='<span class="se">S</span>'}
+  else if(k===key(...G)){d.innerHTML='<span class="se">C</span>'}
+  if(!st)continue;
+  if(st.path&&st.path.includes(k))d.classList.add("path");
+  else if(k===st.cur)d.classList.add("cur");
+  else if(st.closed.has(k))d.classList.add("closed");
+  else if(st.open.has(k))d.classList.add("open");
+  if(st.g[k]!==undefined&&k!==key(...S)&&k!==key(...G)){const [x,y]=k.split(",").map(Number);d.innerHTML='<div style="display:flex;justify-content:space-between;width:100%;padding:0 3px;box-sizing:border-box"><span>'+st.g[k]+'</span><span>'+h(x,y)+'</span></div><span class="big">'+st.f[k]+'</span>'}
+ }
+ info.textContent=st?("Krok "+idx+"/"+(steps.length-1)+" · "+st.msg):"Tapnij Krok albo Auto. Tapnij pole, by dodać ścianę.";
+}
+function stopAuto(){clearInterval(timer);timer=null;playBtn.textContent="▶▶ Auto"}
+function reset(){stopAuto();compute();idx=-1;render()}
+document.getElementById("step").onclick=()=>{if(idx<steps.length-1){idx++;render()}};
+playBtn.onclick=function(){if(timer){stopAuto();return}
+ playBtn.textContent="❚❚ Pauza";timer=setInterval(()=>{if(idx<steps.length-1){idx++;render()}else stopAuto()},450)};
+document.getElementById("reset").onclick=reset;
+document.getElementById("hmode").onclick=function(){manhattan=!manhattan;this.textContent="h: "+(manhattan?"Manhattan":"Euklides");reset()};
+reset();
+</script>
