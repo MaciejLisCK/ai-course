@@ -1,0 +1,125 @@
+<h2 class="sr-only">Interaktywny klasyfikator Naive Bayes: edytowalny zbiór treningowy z cechami pogodowymi i etykietą grać/nie grać; wynik dla nowej próbki przelicza się automatycznie po każdej zmianie.</h2>
+<style>
+.nb-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.nb-table th{font-weight:500;color:var(--text-secondary);text-align:left;padding:4px 3px;border-bottom:0.5px solid var(--border-strong)}
+.nb-table td{padding:3px;border-bottom:0.5px solid var(--border)}
+.nb-table select{width:100%;height:30px;font-size:12px;padding:0 4px}
+.nb-del{height:30px;width:30px;padding:0;border:none}
+.res-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+.res-table th{font-weight:500;color:var(--text-secondary);text-align:left;padding:5px 6px;border-bottom:0.5px solid var(--border-strong)}
+.res-table td{padding:5px 6px;border-bottom:0.5px solid var(--border);font-family:var(--font-mono);font-size:12px}
+.res-table td:first-child{font-family:var(--font-sans);font-size:13px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+</style>
+
+<p style="font-size:14px;font-weight:500;margin:0 0 8px;">Zbiór treningowy</p>
+<table class="nb-table" id="train">
+<thead><tr>
+<th style="width:11%">Zachmurzenie</th><th style="width:11%">Opady</th><th style="width:11%">Wilgotność</th><th style="width:10%">Wiatr</th><th style="width:12%">Temperatura</th><th style="width:11%">Etykieta</th><th style="width:36px"></th>
+</tr></thead>
+<tbody id="train-body"></tbody>
+</table>
+<div style="display:flex;gap:8px;margin:10px 0 1.5rem;align-items:center;flex-wrap:wrap;">
+<button id="add-row"><i class="ti ti-plus" aria-hidden="true"></i> Dodaj wiersz</button>
+<button id="reset"><i class="ti ti-refresh" aria-hidden="true"></i> Przywróć domyślne</button>
+<span id="counts" style="font-size:13px;color:var(--text-secondary);margin-left:auto;"></span>
+</div>
+
+<p style="font-size:14px;font-weight:500;margin:0 0 8px;">Nowa próbka</p>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:10px;" id="sample"></div>
+<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:1.5rem;">
+<label style="font-size:13px;color:var(--text-secondary);display:flex;align-items:center;gap:6px;"><input type="checkbox" id="laplace" style="width:auto;height:auto;"> Wygładzanie Laplace'a (α = 1)</label>
+<span id="err" style="font-size:13px;color:var(--text-danger);"></span>
+</div>
+
+<div id="out"></div>
+
+<script>
+const FEATURES=[
+{key:'outlook',name:'Zachmurzenie',vals:['słonecznie','pochmurno','deszczowo']},
+{key:'rain',name:'Opady',vals:['brak','mżawka','ulewa']},
+{key:'hum',name:'Wilgotność',vals:['wysoka','normalna']},
+{key:'wind',name:'Wiatr',vals:['słaby','silny']},
+{key:'temp',name:'Temperatura',vals:['gorąco','umiarkowanie','zimno']}
+];
+const LABELS=['grać','nie grać'];
+const DEFAULT=[
+['słonecznie','brak','normalna','słaby','gorąco','grać'],
+['słonecznie','brak','normalna','słaby','umiarkowanie','grać'],
+['słonecznie','brak','normalna','silny','zimno','grać'],
+['słonecznie','mżawka','normalna','słaby','umiarkowanie','grać'],
+['pochmurno','brak','normalna','słaby','umiarkowanie','grać'],
+['pochmurno','brak','wysoka','słaby','gorąco','grać'],
+['pochmurno','mżawka','normalna','silny','gorąco','grać'],
+['pochmurno','mżawka','normalna','słaby','umiarkowanie','grać'],
+['deszczowo','brak','normalna','słaby','gorąco','grać'],
+['deszczowo','brak','normalna','słaby','umiarkowanie','grać'],
+['słonecznie','mżawka','normalna','słaby','zimno','nie grać'],
+['słonecznie','brak','normalna','silny','zimno','nie grać'],
+['pochmurno','mżawka','wysoka','silny','umiarkowanie','nie grać'],
+['pochmurno','ulewa','wysoka','silny','umiarkowanie','nie grać'],
+['pochmurno','mżawka','wysoka','słaby','zimno','nie grać'],
+['deszczowo','mżawka','normalna','silny','zimno','nie grać'],
+['deszczowo','ulewa','normalna','słaby','umiarkowanie','nie grać']
+];
+let data=[];
+function load(){data=DEFAULT.map(r=>{const o={};FEATURES.forEach((f,i)=>o[f.key]=r[i]);o.label=r[5];return o;});}
+function opts(vals,sel){return vals.map(v=>`<option${v===sel?' selected':''}>${v}</option>`).join('');}
+function renderTrain(){
+const tb=document.getElementById('train-body');
+tb.innerHTML=data.map((row,i)=>`<tr>${FEATURES.map(f=>`<td><select data-i="${i}" data-k="${f.key}">${opts(f.vals,row[f.key])}</select></td>`).join('')}<td><select data-i="${i}" data-k="label">${opts(LABELS,row.label)}</select></td><td><button class="nb-del" data-del="${i}" aria-label="Usuń wiersz"><i class="ti ti-trash" aria-hidden="true"></i></button></td></tr>`).join('');
+const c={};LABELS.forEach(l=>c[l]=data.filter(r=>r.label===l).length);
+document.getElementById('counts').textContent=`n = ${data.length} · grać: ${c['grać']} · nie grać: ${c['nie grać']}`;
+}
+function renderSample(){
+document.getElementById('sample').innerHTML=FEATURES.map(f=>`<div><label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:3px;">${f.name}</label><select id="s-${f.key}" style="width:100%;height:32px;font-size:13px;">${opts(f.vals,f.vals[0])}</select></div>`).join('');
+document.getElementById('sample').addEventListener('change',classify);
+}
+function frac(a,b){return `${a}/${b}`;}
+function classify(){
+const err=document.getElementById('err');err.textContent='';
+const out=document.getElementById('out');
+const alpha=document.getElementById('laplace').checked?1:0;
+const x={};FEATURES.forEach(f=>x[f.key]=document.getElementById('s-'+f.key).value);
+const N=data.length;
+if(N===0){err.textContent='Zbiór treningowy jest pusty';out.innerHTML='';return;}
+const res=LABELS.map(l=>{
+const rows=data.filter(r=>r.label===l);const nc=rows.length;
+const prior=nc/N;let prod=prior;
+const cond=FEATURES.map(f=>{
+const cnt=rows.filter(r=>r[f.key]===x[f.key]).length;
+const num=cnt+alpha,den=nc+alpha*f.vals.length;
+const p=den===0?0:num/den;prod*=p;
+return{name:f.name,val:x[f.key],num,den,p};
+});
+return{label:l,nc,prior,cond,prod};
+});
+if(res.every(r=>r.nc===0)){err.textContent='Brak przykładów w żadnej klasie';out.innerHTML='';return;}
+const sum=res.reduce((s,r)=>s+r.prod,0);
+res.forEach(r=>r.post=sum>0?r.prod/sum:0);
+const best=sum>0?res.reduce((a,b)=>b.prod>a.prod?b:a):null;
+const zero=res.filter(r=>r.prod===0&&r.nc>0).length>0;
+let html=`<p style="font-size:14px;font-weight:500;margin:0 0 4px;">Wynik</p>`;
+if(best){html+=`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface-1);border-radius:var(--radius);margin-bottom:12px;"><i class="ti ${best.label==='grać'?'ti-golf':'ti-home'}" style="font-size:24px;" aria-hidden="true"></i><div><div style="font-size:13px;color:var(--text-secondary);">Decyzja</div><div style="font-size:22px;font-weight:500;">${best.label.toUpperCase()} <span style="font-size:14px;font-weight:400;color:var(--text-secondary);">(${(best.post*100).toFixed(1)} %)</span></div></div></div>`;}
+else{html+=`<p style="font-size:13px;color:var(--text-danger);">Oba iloczyny wynoszą 0 – włącz wygładzanie Laplace'a.</p>`;}
+if(zero&&alpha===0)html+=`<p style="font-size:13px;color:var(--text-secondary);margin:0 0 8px;">Uwaga: jedno z prawdopodobieństw warunkowych wynosi 0, co zeruje cały iloczyn. Wygładzanie Laplace'a rozwiązuje ten problem.</p>`;
+html+=`<table class="res-table"><thead><tr><th>Składnik</th>${res.map(r=>`<th>${r.label}</th>`).join('')}</tr></thead><tbody>`;
+html+=`<tr><td>P(klasa)</td>${res.map(r=>`<td>${frac(r.nc,N)} = ${r.prior.toFixed(3)}</td>`).join('')}</tr>`;
+FEATURES.forEach((f,i)=>{html+=`<tr><td>P(${f.name.toLowerCase()} = ${x[f.key]} | klasa)</td>${res.map(r=>{const c=r.cond[i];return `<td>${frac(c.num,c.den)} = ${c.p.toFixed(3)}</td>`;}).join('')}</tr>`;});
+html+=`<tr><td style="font-weight:500;">Iloczyn (nieznormalizowany)</td>${res.map(r=>`<td>${r.prod.toExponential(3)}</td>`).join('')}</tr>`;
+html+=`<tr><td style="font-weight:500;">Prawdopodobieństwo a posteriori</td>${res.map(r=>`<td>${(r.post*100).toFixed(1)} %${best&&best===r?' ← wybór':''}</td>`).join('')}</tr>`;
+html+=`</tbody></table>`;
+if(alpha)html+=`<p style="font-size:12px;color:var(--text-muted);margin:8px 0 0;">Wygładzanie: P(x|c) = (n<sub>x,c</sub> + 1) / (n<sub>c</sub> + liczba wartości cechy)</p>`;
+out.innerHTML=html;
+}
+document.getElementById('train-body').addEventListener('change',e=>{
+const s=e.target;if(s.tagName!=='SELECT')return;data[+s.dataset.i][s.dataset.k]=s.value;renderTrain();classify();
+});
+document.getElementById('train-body').addEventListener('click',e=>{
+const b=e.target.closest('[data-del]');if(!b)return;data.splice(+b.dataset.del,1);renderTrain();classify();
+});
+document.getElementById('add-row').onclick=()=>{const o={};FEATURES.forEach(f=>o[f.key]=f.vals[0]);o.label=LABELS[0];data.push(o);renderTrain();classify();};
+document.getElementById('reset').onclick=()=>{load();renderTrain();classify();};
+document.getElementById('laplace').addEventListener('change',classify);
+load();renderTrain();renderSample();classify();
+</script>
