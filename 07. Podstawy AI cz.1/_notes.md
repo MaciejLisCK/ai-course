@@ -90,5 +90,5 @@ Pytania do algorytmów:
 
 
 [ ] Losowe lasy https://towardsdatascience.com/random-forest-explained-a-visual-guide-with-code-examples-9f736a6e1b3c/
-[ ] wyzarzanie symulowane https://cse442-17f.github.io/simulated-annealing/
-[ ] naive bayes https://towardsdatascience.com/gaussian-naive-bayes-explained-a-visual-guide-with-code-examples-for-beginners-04949cef383c/
+[x] wyzarzanie symulowane https://cse442-17f.github.io/simulated-annealing/
+[x] naive bayes https://towardsdatascience.com/gaussian-naive-bayes-explained-a-visual-guide-with-code-examples-for-beginners-04949cef383c/
