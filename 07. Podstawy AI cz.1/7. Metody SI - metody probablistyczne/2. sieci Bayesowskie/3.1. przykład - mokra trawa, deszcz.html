@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sieć bayesowska – mokra trawa</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f7f7f5;
+    color: #2c2c2a;
+    margin: 0;
+    padding: 24px 16px 48px;
+    display: flex;
+    justify-content: center;
+  }
+  .wrap { max-width: 420px; width: 100%; }
+  h1 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0 0 4px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #5f5e5a;
+    margin: 0 0 20px;
+    line-height: 1.5;
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap;
+  }
+  svg { width: 100%; height: auto; display: block; margin-bottom: 20px; }
+  #evidence-prob {
+    font-size: 13px;
+    color: #5f5e5a;
+    margin: 0 0 20px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 0.5px solid #d9d9d3;
+    border-radius: 8px;
+  }
+  .row { margin-bottom: 20px; }
+  .row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .row-head .name { font-size: 14px; font-weight: 500; }
+  .row-head .val { font-size: 14px; color: #5f5e5a; }
+  .track {
+    height: 8px;
+    border-radius: 4px;
+    background: #e2e2e2;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: #2e6fde;
+    transition: width 0.15s ease;
+  }
+  .btn-group { display: flex; gap: 6px; }
+  button {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 13px;
+    font-family: inherit;
+    background: #ffffff;
+    border: 0.5px solid #c9c8c1;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #2c2c2a;
+  }
+  button:hover { background: #f1efe8; }
+  button:active { transform: scale(0.98); }
+  button.active {
+    background: #e6f1fb;
+    border-color: #378ADD;
+    font-weight: 500;
+  }
+  #reset-btn {
+    width: 100%;
+    margin-top: 4px;
+    padding: 9px 0;
+  }
+  footer {
+    margin-top: 28px;
+    font-size: 12px;
+    color: #94918a;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Sieć bayesowska: przykład "mokra trawa"</h1>
+  <p class="subtitle">Ustaw dowody dla poszczególnych zmiennych i zobacz, jak zmieniają się prawdopodobieństwa pozostałych (dokładna inferencja przez enumerację).</p>
+
+  <h2 class="sr-only">Interaktywna sieć bayesowska z czterema zmiennymi. Każdy węzeł na diagramie pokazuje aktualne prawdopodobieństwo prawdy jako liczbę i kolorowy pasek o wspólnej długości.</h2>
+
+  <svg viewBox="0 0 380 300" role="img">
+    <title>Diagram sieci bayesowskiej z prawdopodobieństwami</title>
+    <desc>Zachmurzenie wpływa na Zraszacz i Deszcz. Zraszacz i Deszcz wspólnie wpływają na Mokrą trawę.</desc>
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="#73726c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <line x1="150" y1="76" x2="112" y2="120" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+    <line x1="230" y1="76" x2="268" y2="120" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+    <line x1="112" y1="176" x2="150" y2="220" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+    <line x1="268" y1="176" x2="230" y2="220" stroke="#73726c" stroke-width="0.5" marker-end="url(#arrow)"/>
+
+    <g>
+      <rect x="115" y="20" width="150" height="56" rx="8" fill="#ffffff" stroke="#94918a" stroke-width="0.75"/>
+      <text x="190" y="36" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2c2c2a">Zachmurzenie</text>
+      <rect x="129" y="57" width="60" height="6" rx="3" fill="#e2e2e2"/>
+      <rect id="svgbar-C" x="129" y="57" width="0" height="6" rx="3" fill="#2e6fde"/>
+      <text id="svgpct-C" x="251" y="60" text-anchor="end" dominant-baseline="central" font-size="12" fill="#5f5e5a">0%</text>
+    </g>
+
+    <g>
+      <rect x="40" y="120" width="140" height="56" rx="8" fill="#ffffff" stroke="#94918a" stroke-width="0.75"/>
+      <text x="110" y="136" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2c2c2a">Zraszacz</text>
+      <rect x="54" y="157" width="60" height="6" rx="3" fill="#e2e2e2"/>
+      <rect id="svgbar-S" x="54" y="157" width="0" height="6" rx="3" fill="#2e6fde"/>
+      <text id="svgpct-S" x="166" y="160" text-anchor="end" dominant-baseline="central" font-size="12" fill="#5f5e5a">0%</text>
+    </g>
+
+    <g>
+      <rect x="200" y="120" width="140" height="56" rx="8" fill="#ffffff" stroke="#94918a" stroke-width="0.75"/>
+      <text x="270" y="136" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2c2c2a">Deszcz</text>
+      <rect x="214" y="157" width="60" height="6" rx="3" fill="#e2e2e2"/>
+      <rect id="svgbar-R" x="214" y="157" width="0" height="6" rx="3" fill="#2e6fde"/>
+      <text id="svgpct-R" x="326" y="160" text-anchor="end" dominant-baseline="central" font-size="12" fill="#5f5e5a">0%</text>
+    </g>
+
+    <g>
+      <rect x="115" y="220" width="150" height="56" rx="8" fill="#ffffff" stroke="#94918a" stroke-width="0.75"/>
+      <text x="190" y="236" text-anchor="middle" dominant-baseline="central" font-size="14" font-weight="500" fill="#2c2c2a">Mokra trawa</text>
+      <rect x="129" y="257" width="60" height="6" rx="3" fill="#e2e2e2"/>
+      <rect id="svgbar-W" x="129" y="257" width="0" height="6" rx="3" fill="#2e6fde"/>
+      <text id="svgpct-W" x="251" y="260" text-anchor="end" dominant-baseline="central" font-size="12" fill="#5f5e5a">0%</text>
+    </g>
+  </svg>
+
+  <div id="evidence-prob"></div>
+  <div id="rows"></div>
+
+  <button id="reset-btn" type="button">Wyczyść wszystkie dowody</button>
+
+  <footer>
+    Model: klasyczny przykład sieci bayesowskiej (Russell &amp; Norvig).<br>
+    P(Zachmurzenie=P)=0.5 · P(Zraszacz=P|Zachmurzenie)=0.1/0.5 · P(Deszcz=P|Zachmurzenie)=0.8/0.2 · P(Mokra trawa=P|Zraszacz,Deszcz)=0.99/0.9/0.9/0.0
+  </footer>
+
+</div>
+
+<script>
+const nodes = [
+  { id: 'C', name: 'Zachmurzenie' },
+  { id: 'S', name: 'Zraszacz' },
+  { id: 'R', name: 'Deszcz' },
+  { id: 'W', name: 'Mokra trawa' }
+];
+
+const BAR_LEN = 60;
+const evidence = { C: null, S: null, R: null, W: null };
+
+function joint(c, s, r, w) {
+  const pc = c ? 0.5 : 0.5;
+  const ps = c ? (s ? 0.1 : 0.9) : (s ? 0.5 : 0.5);
+  const pr = c ? (r ? 0.8 : 0.2) : (r ? 0.2 : 0.8);
+  const pwTrue = (s && r) ? 0.99 : (s && !r) ? 0.9 : (!s && r) ? 0.9 : 0.0;
+  const pw = w ? pwTrue : (1 - pwTrue);
+  return pc * ps * pr * pw;
+}
+
+function consistent(assign) {
+  for (const k of ['C', 'S', 'R', 'W']) {
+    if (evidence[k] !== null && evidence[k] !== assign[k]) return false;
+  }
+  return true;
+}
+
+function compute() {
+  const bools = [true, false];
+  let evidenceTotal = 0;
+  const sumTrue = { C: 0, S: 0, R: 0, W: 0 };
+  for (const c of bools) for (const s of bools) for (const r of bools) for (const w of bools) {
+    const assign = { C: c, S: s, R: r, W: w };
+    if (!consistent(assign)) continue;
+    const p = joint(c, s, r, w);
+    evidenceTotal += p;
+    if (c) sumTrue.C += p;
+    if (s) sumTrue.S += p;
+    if (r) sumTrue.R += p;
+    if (w) sumTrue.W += p;
+  }
+  const marginals = {};
+  for (const k of ['C', 'S', 'R', 'W']) {
+    marginals[k] = evidenceTotal > 0 ? sumTrue[k] / evidenceTotal : null;
+  }
+  return { evidenceTotal, marginals };
+}
+
+const rowsEl = document.getElementById('rows');
+const probEl = document.getElementById('evidence-prob');
+
+nodes.forEach(node => {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML =
+    '<div class="row-head">' +
+      '<span class="name">' + node.name + '</span>' +
+      '<span class="val" id="pct-' + node.id + '"></span>' +
+    '</div>' +
+    '<div class="track"><div class="fill" id="bar-' + node.id + '"></div></div>' +
+    '<div class="btn-group" role="group" aria-label="Dowód dla ' + node.name + '">' +
+      '<button type="button" data-node="' + node.id + '" data-val="true">Prawda</button>' +
+      '<button type="button" data-node="' + node.id + '" data-val="false">Fałsz</button>' +
+      '<button type="button" data-node="' + node.id + '" data-val="null">Nieznane</button>' +
+    '</div>';
+  rowsEl.appendChild(row);
+});
+
+function setEvidence(id, val) {
+  evidence[id] = val === 'true' ? true : val === 'false' ? false : null;
+  render();
+}
+
+rowsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-node]');
+  if (!btn) return;
+  setEvidence(btn.dataset.node, btn.dataset.val);
+});
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  for (const k of ['C', 'S', 'R', 'W']) evidence[k] = null;
+  render();
+});
+
+function render() {
+  const { evidenceTotal, marginals } = compute();
+
+  document.querySelectorAll('button[data-node]').forEach(btn => {
+    const id = btn.dataset.node;
+    const current = evidence[id];
+    const btnVal = btn.dataset.val === 'true' ? true : btn.dataset.val === 'false' ? false : null;
+    btn.classList.toggle('active', current === btnVal);
+  });
+
+  if (evidenceTotal === 0) {
+    probEl.textContent = 'Ta kombinacja dowodów jest niemożliwa (prawdopodobieństwo zero).';
+    nodes.forEach(n => {
+      document.getElementById('bar-' + n.id).style.width = '0%';
+      document.getElementById('pct-' + n.id).textContent = 'brak danych';
+      document.getElementById('svgbar-' + n.id).setAttribute('width', '0');
+      document.getElementById('svgpct-' + n.id).textContent = '—';
+    });
+    return;
+  }
+
+  probEl.textContent = 'P(ustawione dowody) = ' + Math.round(evidenceTotal * 100) + '%';
+
+  nodes.forEach(n => {
+    const p = marginals[n.id];
+    const pct = Math.round(p * 100);
+    document.getElementById('bar-' + n.id).style.width = pct + '%';
+    document.getElementById('pct-' + n.id).textContent = 'P(prawda) = ' + pct + '%';
+    document.getElementById('svgbar-' + n.id).setAttribute('width', (p * BAR_LEN).toFixed(1));
+    document.getElementById('svgpct-' + n.id).textContent = pct + '%';
+  });
+}
+
+render();
+</script>
+</body>
+</html>
