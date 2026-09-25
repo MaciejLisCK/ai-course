@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>k-NN na boisku – do której klasy należy nowy uczeń?</title>
+<style>
+:root{
+  --bg:#eef0f2; --panel:#ffffff; --ink:#1d2430; --muted:#5b6574; --line:#c9ced6;
+  --court:#d9d2c3; --court-line:#ffffff; --accent:#0a5fb4;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191f; --panel:#1f252e; --ink:#e8ecf1; --muted:#a1abb8; --line:#39414d;
+    --court:#3a372f; --court-line:#8b8577; --accent:#6fb3ff;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191f; --panel:#1f252e; --ink:#e8ecf1; --muted:#a1abb8; --line:#39414d;
+  --court:#3a372f; --court-line:#8b8577; --accent:#6fb3ff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px;font-weight:700}
+.lead{margin:0 0 18px;color:var(--muted);max-width:75ch}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+canvas{display:block;width:100%;height:auto;border-radius:6px;touch-action:none;cursor:crosshair}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.panel h2{font-size:1rem;margin:0 0 10px}
+.block{padding:12px 0;border-top:1px solid var(--line)}
+.block:first-of-type{border-top:0;padding-top:0}
+label{font-size:.9rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,select{font:inherit;font-size:.88rem;padding:7px 11px;border-radius:6px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{border:2px solid var(--accent);font-weight:600}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+input[type=range]{width:100%}
+.kval{font-size:1.4rem;font-weight:700}
+.modes button{display:flex;align-items:center;gap:6px}
+.legend{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.legend span{display:flex;align-items:center;gap:6px;font-size:.88rem}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+td,th{padding:4px 6px;text-align:left;border-bottom:1px solid var(--line)}
+.bar{height:10px;border-radius:3px}
+.result{font-size:1.05rem;font-weight:600;margin:4px 0 8px}
+.hint{font-size:.84rem;color:var(--muted);margin:6px 0 0}
+.explain{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 20px}
+.explain h2{font-size:1.1rem;margin:0 0 8px}
+.explain p,.explain li{max-width:80ch}
+svg.ico{flex:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>k-NN na boisku: do której klasy należy nowy uczeń?</h1>
+  <p class="lead">Na przerwie uczniowie trzymają się w grupkach ze swojej klasy. Postaw na boisku nowego ucznia (kliknij), a algorytm k najbliższych sąsiadów sprawdzi, kto stoi najbliżej, i zgadnie jego klasę przez głosowanie. Nowego ucznia możesz przeciągać.</p>
+
+  <div class="grid">
+    <div class="stage">
+      <canvas id="c" width="900" height="560" aria-label="Boisko z uczniami"></canvas>
+    </div>
+
+    <aside class="panel">
+      <div class="block">
+        <h2>Co robi kliknięcie</h2>
+        <div class="row modes" id="modes"></div>
+        <p class="hint">Tryb „Nowy uczeń” stawia ucznia bez klasy do sklasyfikowania. Pozostałe tryby dodają ucznia wybranej klasy.</p>
+      </div>
+
+      <div class="block">
+        <label for="k">Liczba sąsiadów k</label>
+        <div class="row"><span class="kval" id="kOut">5</span></div>
+        <input id="k" type="range" min="1" max="15" step="1" value="5">
+        <label for="metric">Odległość</label>
+        <select id="metric">
+          <option value="e">euklidesowa (w linii prostej)</option>
+          <option value="m">Manhattan (po kratkach)</option>
+        </select>
+        <div class="row" style="margin-top:8px">
+          <label><input type="checkbox" id="weighted"> głos ważony odległością</label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="map"> pokaż mapę decyzji</label>
+        </div>
+      </div>
+
+      <div class="block">
+        <h2>Wynik głosowania</h2>
+        <div class="result" id="result">Kliknij na boisku, aby dodać nowego ucznia.</div>
+        <table id="votes"></table>
+        <p class="hint" id="note"></p>
+      </div>
+
+      <div class="block">
+        <h2>Klasy</h2>
+        <div class="legend" id="legend"></div>
+        <p class="hint">Każda klasa ma własny kształt i literę, więc kolor nie jest potrzebny do rozróżnienia.</p>
+      </div>
+
+      <div class="block row">
+        <button id="shuffle">Losuj nowe grupki</button>
+        <button id="clear">Wyczyść boisko</button>
+        <button id="undo">Cofnij ostatniego</button>
+      </div>
+    </aside>
+  </div>
+
+  <section class="explain">
+    <h2>Jak to działa</h2>
+    <ol>
+      <li>Liczymy odległość nowego ucznia od każdego ucznia na boisku.</li>
+      <li>Wybieramy k najbliższych (połączone linią, otoczone okręgiem).</li>
+      <li>Każdy z nich „głosuje” na swoją klasę. Wygrywa klasa z największą liczbą głosów.</li>
+      <li>Remis rozstrzyga klasa najbliższego sąsiada z remisujących.</li>
+    </ol>
+    <p>Pomysły na lekcję: ustaw k = 1 i postaw ucznia na granicy dwóch grupek, potem zwiększaj k. Dodaj jednego „zabłąkanego” ucznia z innej klasy w środek grupki i zobacz, jak zmienia wynik przy małym i dużym k. Porównaj mapę decyzji dla odległości euklidesowej i Manhattan.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+const CLASSES=[
+  {id:0,name:"1A",color:"#E69F00",shape:"circle"},
+  {id:1,name:"2B",color:"#56B4E9",shape:"square"},
+  {id:2,name:"3C",color:"#009E73",shape:"triangle"},
+  {id:3,name:"4D",color:"#CC79A7",shape:"diamond"}
+];
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,R=11;
+let students=[],query=null,mode=-1,history=[];
+const kIn=document.getElementById('k'),kOut=document.getElementById('kOut');
+const metricIn=document.getElementById('metric'),wIn=document.getElementById('weighted'),mapIn=document.getElementById('map');
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rnd(a,b){return a+Math.random()*(b-a);}
+function gauss(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+function shuffle(){
+  students=[];history=[];
+  const centers=[];
+  CLASSES.forEach(c=>{
+    let p,ok=false,t=0;
+    while(!ok&&t<200){p={x:rnd(130,W-130),y:rnd(110,H-110)};ok=centers.every(q=>Math.hypot(q.x-p.x,q.y-p.y)>230);t++;}
+    centers.push(p);
+    const n=10+Math.floor(Math.random()*5);
+    for(let i=0;i<n;i++){
+      students.push({x:clamp(p.x+gauss()*55,20,W-20),y:clamp(p.y+gauss()*50,20,H-20),c:c.id});
+    }
+  });
+  query={x:W/2,y:H/2};
+  draw();
+}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+function dist(a,b){return metricIn.value==='m'?Math.abs(a.x-b.x)+Math.abs(a.y-b.y):Math.hypot(a.x-b.x,a.y-b.y);}
+
+function classify(p){
+  const k=Math.min(+kIn.value,students.length);
+  if(!k)return null;
+  const nb=students.map(s=>({s,d:dist(p,s)})).sort((a,b)=>a.d-b.d).slice(0,k);
+  const score=CLASSES.map(()=>0),count=CLASSES.map(()=>0);
+  nb.forEach(n=>{count[n.s.c]++;score[n.s.c]+=wIn.checked?1/Math.max(n.d,1):1;});
+  const max=Math.max(...score);
+  const tied=CLASSES.filter(c=>Math.abs(score[c.id]-max)<1e-9).map(c=>c.id);
+  let win=tied[0];
+  if(tied.length>1){win=nb.find(n=>tied.includes(n.s.c)).s.c;}
+  return {nb,score,count,win,tie:tied.length>1,tied};
+}
+
+function drawShape(x,y,c,r,filled,stroke){
+  ctx.beginPath();
+  if(c.shape==='circle')ctx.arc(x,y,r,0,Math.PI*2);
+  else if(c.shape==='square')ctx.rect(x-r*.88,y-r*.88,r*1.76,r*1.76);
+  else if(c.shape==='triangle'){ctx.moveTo(x,y-r*1.15);ctx.lineTo(x+r*1.05,y+r*.8);ctx.lineTo(x-r*1.05,y+r*.8);ctx.closePath();}
+  else{ctx.moveTo(x,y-r*1.2);ctx.lineTo(x+r*1.2,y);ctx.lineTo(x,y+r*1.2);ctx.lineTo(x-r*1.2,y);ctx.closePath();}
+  if(filled){ctx.fillStyle=c.color;ctx.fill();}
+  ctx.lineWidth=stroke||1.5;ctx.strokeStyle='#1d2430';ctx.stroke();
+  ctx.fillStyle='#1d2430';ctx.font='bold 10px Segoe UI, Arial, sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(c.name[1],x,y+(c.shape==='triangle'?3:1));
+}
+
+function drawCourt(){
+  ctx.fillStyle=css('--court');ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle=css('--court-line');ctx.lineWidth=3;
+  ctx.strokeRect(12,12,W-24,H-24);
+  ctx.beginPath();ctx.moveTo(W/2,12);ctx.lineTo(W/2,H-12);ctx.stroke();
+  ctx.beginPath();ctx.arc(W/2,H/2,60,0,Math.PI*2);ctx.stroke();
+  ctx.strokeRect(12,H/2-90,90,180);ctx.strokeRect(W-102,H/2-90,90,180);
+}
+
+function drawMap(){
+  if(!mapIn.checked||!students.length)return;
+  const step=12;
+  ctx.globalAlpha=.28;
+  for(let x=step/2;x<W;x+=step)for(let y=step/2;y<H;y+=step){
+    const r=classify({x,y});
+    ctx.fillStyle=CLASSES[r.win].color;ctx.fillRect(x-step/2,y-step/2,step,step);
+  }
+  ctx.globalAlpha=1;
+}
+
+function draw(){
+  drawCourt();drawMap();
+  let res=null;
+  if(query&&students.length){
+    res=classify(query);
+    const far=res.nb[res.nb.length-1].d;
+    ctx.setLineDash([6,5]);ctx.lineWidth=2;ctx.strokeStyle=css('--ink');
+    ctx.beginPath();
+    if(metricIn.value==='m'){ctx.moveTo(query.x,query.y-far);ctx.lineTo(query.x+far,query.y);ctx.lineTo(query.x,query.y+far);ctx.lineTo(query.x-far,query.y);ctx.closePath();}
+    else ctx.arc(query.x,query.y,far,0,Math.PI*2);
+    ctx.stroke();ctx.setLineDash([]);
+    ctx.lineWidth=2;
+    res.nb.forEach(n=>{ctx.beginPath();ctx.moveTo(query.x,query.y);ctx.lineTo(n.s.x,n.s.y);ctx.stroke();});
+  }
+  const nbSet=new Set(res?res.nb.map(n=>n.s):[]);
+  students.forEach(s=>{
+    if(nbSet.has(s)){ctx.beginPath();ctx.arc(s.x,s.y,R+6,0,Math.PI*2);ctx.lineWidth=3;ctx.strokeStyle=css('--ink');ctx.stroke();}
+    drawShape(s.x,s.y,CLASSES[s.c],R,true);
+  });
+  if(query){
+    const c=res?CLASSES[res.win]:null;
+    ctx.beginPath();ctx.arc(query.x,query.y,R+9,0,Math.PI*2);
+    ctx.fillStyle='#ffffff';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle='#1d2430';ctx.stroke();
+    if(c)drawShape(query.x,query.y,c,R,true,2);
+    ctx.fillStyle='#1d2430';ctx.font='bold 13px Segoe UI, Arial, sans-serif';
+    ctx.fillText('?',query.x+R+16,query.y-R-8);
+  }
+  renderPanel(res);
+}
+
+function renderPanel(res){
+  const out=document.getElementById('result'),tb=document.getElementById('votes'),note=document.getElementById('note');
+  if(!query){out.textContent='Kliknij na boisku w trybie „Nowy uczeń”.';tb.innerHTML='';note.textContent='';return;}
+  if(!res){out.textContent='Na boisku nie ma jeszcze uczniów z klasą.';tb.innerHTML='';note.textContent='';return;}
+  out.textContent='Nowy uczeń trafia do klasy '+CLASSES[res.win].name;
+  const total=res.score.reduce((a,b)=>a+b,0)||1;
+  tb.innerHTML='<tr><th>Klasa</th><th>Głosy</th><th style="width:45%">Udział</th></tr>'+
+    CLASSES.map(c=>`<tr><td>${icon(c)} ${c.name}</td><td>${res.count[c.id]}${wIn.checked?' ('+res.score[c.id].toFixed(3)+')':''}</td>
+    <td><div class="bar" style="width:${(res.score[c.id]/total*100).toFixed(0)}%;background:${c.color};border:1px solid #1d2430"></div></td></tr>`).join('');
+  note.textContent=res.tie?'Remis między klasami '+res.tied.map(i=>CLASSES[i].name).join(' i ')+'. Wygrywa klasa najbliższego sąsiada.':
+    (+kIn.value>students.length?'k jest większe niż liczba uczniów, więc głosują wszyscy.':'');
+}
+
+function icon(c){
+  const s={circle:'<circle cx="8" cy="8" r="6"/>',square:'<rect x="2.5" y="2.5" width="11" height="11"/>',
+    triangle:'<polygon points="8,1.5 14.5,13.5 1.5,13.5"/>',diamond:'<polygon points="8,1 15,8 8,15 1,8"/>'}[c.shape];
+  return `<svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="${c.color}" stroke="#1d2430" stroke-width="1.3">${s}</svg>`;
+}
+
+function buildUI(){
+  const m=document.getElementById('modes');
+  const opts=[{id:-1,label:'<span style="font-weight:700">?</span> Nowy uczeń'}].concat(CLASSES.map(c=>({id:c.id,label:icon(c)+' Dodaj do '+c.name})));
+  m.innerHTML=opts.map(o=>`<button data-m="${o.id}" aria-pressed="${o.id===mode}">${o.label}</button>`).join('');
+  m.onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=+b.dataset.m;
+    m.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',+x.dataset.m===mode));};
+  document.getElementById('legend').innerHTML=CLASSES.map(c=>`<span>${icon(c)} klasa ${c.name}</span>`).join('');
+}
+
+function pos(e){const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+let dragging=null;
+cv.addEventListener('pointerdown',e=>{
+  const p=pos(e);
+  if(query&&Math.hypot(p.x-query.x,p.y-query.y)<R+12){dragging='q';cv.setPointerCapture(e.pointerId);return;}
+  if(mode===-1){query=p;dragging='q';cv.setPointerCapture(e.pointerId);}
+  else{const s={x:p.x,y:p.y,c:mode};students.push(s);history.push(s);}
+  draw();
+});
+cv.addEventListener('pointermove',e=>{if(dragging==='q'){const p=pos(e);query={x:clamp(p.x,10,W-10),y:clamp(p.y,10,H-10)};draw();}});
+cv.addEventListener('pointerup',()=>dragging=null);
+
+kIn.oninput=()=>{kOut.textContent=kIn.value;draw();};
+[metricIn,wIn,mapIn].forEach(el=>el.onchange=draw);
+document.getElementById('shuffle').onclick=shuffle;
+document.getElementById('clear').onclick=()=>{students=[];history=[];query=null;draw();};
+document.getElementById('undo').onclick=()=>{const s=history.pop();if(s)students=students.filter(x=>x!==s);draw();};
+if(window.matchMedia)matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',draw);
+
+buildUI();shuffle();
+})();
+</script>
+</body>
+</html>
