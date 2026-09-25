@@ -60,8 +60,6 @@ svg.ico{flex:none}
 </head>
 <body>
 <div class="wrap">
-  <h1>k-NN na boisku: do której klasy należy nowy uczeń?</h1>
-  <p class="lead">Na przerwie uczniowie trzymają się w grupkach ze swojej klasy. Postaw na boisku nowego ucznia (kliknij), a algorytm k najbliższych sąsiadów sprawdzi, kto stoi najbliżej, i zgadnie jego klasę przez głosowanie. Nowego ucznia możesz przeciągać.</p>
 
   <div class="grid">
     <div class="stage">
@@ -112,17 +110,6 @@ svg.ico{flex:none}
       </div>
     </aside>
   </div>
-
-  <section class="explain">
-    <h2>Jak to działa</h2>
-    <ol>
-      <li>Liczymy odległość nowego ucznia od każdego ucznia na boisku.</li>
-      <li>Wybieramy k najbliższych (połączone linią, otoczone okręgiem).</li>
-      <li>Każdy z nich „głosuje” na swoją klasę. Wygrywa klasa z największą liczbą głosów.</li>
-      <li>Remis rozstrzyga klasa najbliższego sąsiada z remisujących.</li>
-    </ol>
-    <p>Pomysły na lekcję: ustaw k = 1 i postaw ucznia na granicy dwóch grupek, potem zwiększaj k. Dodaj jednego „zabłąkanego” ucznia z innej klasy w środek grupki i zobacz, jak zmienia wynik przy małym i dużym k. Porównaj mapę decyzji dla odległości euklidesowej i Manhattan.</p>
-  </section>
 </div>
 
 <script>
