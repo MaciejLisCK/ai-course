@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Symulator uczenia maszynowego – wynik ze sprawdzianu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1F4; --grid:rgba(27,39,51,.06); --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#1B2733; --muted:#566476; --line:#C5CED8;
+  --device:#1F3A5F; --device-2:#2B4C77; --device-ink:#EEF4FA; --device-muted:#AFC3D8; --knob:#E9EEF3; --knob-edge:#9FB0C2;
+  --learn:#0072B2; --learn-soft:#DCEBF6; --on-learn:#FFFFFF;
+  --infer:#E69F00; --infer-soft:#FBEDCC; --on-infer:#2E2000;
+  --ghost-bg:#1B2733; --ghost-ink:#FFFFFF;
+  --display:'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --body:'Atkinson Hyperlegible', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A22; --grid:rgba(230,237,244,.045); --surface:#1C2530; --surface-2:#222C38;
+    --ink:#E6EDF4; --muted:#9DABBA; --line:#34465A;
+    --device:#0E2340; --device-2:#1A365C; --device-ink:#EEF4FA; --device-muted:#9FB6CE; --knob:#D5DEE7; --knob-edge:#7F93A8;
+    --learn:#56B4E9; --learn-soft:#123248; --on-learn:#06202F;
+    --infer:#F0B429; --infer-soft:#3A2C0C; --on-infer:#2E2000;
+    --ghost-bg:#E6EDF4; --ghost-ink:#131A22;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A22; --grid:rgba(230,237,244,.045); --surface:#1C2530; --surface-2:#222C38;
+  --ink:#E6EDF4; --muted:#9DABBA; --line:#34465A;
+  --device:#0E2340; --device-2:#1A365C; --device-ink:#EEF4FA; --device-muted:#9FB6CE; --knob:#D5DEE7; --knob-edge:#7F93A8;
+  --learn:#56B4E9; --learn-soft:#123248; --on-learn:#06202F;
+  --infer:#F0B429; --infer-soft:#3A2C0C; --on-infer:#2E2000;
+  --ghost-bg:#E6EDF4; --ghost-ink:#131A22;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.5;
+  background-color:var(--paper);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:24px 24px;
+}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--learn);outline-offset:2px}
+.page{max-width:1480px;margin:0 auto;padding:20px clamp(12px,2.5vw,32px) 48px}
+
+header.top{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3vw,2.4rem);line-height:1.05;margin:0;letter-spacing:-.01em;max-width:22ch}
+.lede{margin:.4rem 0 0;color:var(--muted);max-width:62ch}
+.eq{font-family:var(--display);font-weight:600;font-size:1.05rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.eq small{display:block;font-family:var(--body);font-weight:400;color:var(--muted);font-size:.82rem}
+h2{font-family:var(--display);font-weight:800;font-size:1.25rem;margin:0 0 .25rem}
+h3{font-family:var(--display);font-weight:600;font-size:1.05rem;margin:0 0 .4rem}
+.hint{color:var(--muted);font-size:.9rem;margin:0}
+
+.workspace{display:grid;grid-template-columns:250px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:960px){.workspace{grid-template-columns:1fr}}
+
+/* Library */
+.library{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;position:sticky;top:calc(12px + env(safe-area-inset-top,0px))}
+@media (max-width:960px){.library{position:static}}
+.lib-list{display:flex;flex-direction:column;gap:10px;margin:12px 0}
+@media (max-width:960px){.lib-list{flex-direction:row;overflow-x:auto;padding-bottom:6px}.mcard{min-width:210px}}
+.mcard{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface-2);cursor:grab;touch-action:none;user-select:none;position:relative}
+.mcard:hover{border-color:var(--muted)}
+.mcard .mname{font-weight:700;display:flex;align-items:center;gap:6px}
+.mcard .mdesc{font-size:.82rem;color:var(--muted)}
+.mcard .mw{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:6px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.mcard .mw span{display:flex;flex-direction:column}
+.mcard .mw b{font-weight:700;font-size:.7rem;color:var(--muted)}
+.mcard .mfoot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:.78rem;color:var(--muted)}
+.mcard.loaded{border-style:dashed;background:transparent;cursor:default}
+.mcard.loaded .badge{display:inline-block}
+.badge{display:none;font-size:.72rem;font-weight:700;border:1.5px solid var(--learn);color:var(--learn);border-radius:99px;padding:0 7px}
+.grip{font-size:1.1rem;line-height:1;color:var(--muted)}
+.btn{border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 12px;cursor:pointer;font-weight:700;font-size:.9rem}
+.btn:hover{border-color:var(--muted)}
+.btn.small{padding:2px 9px;font-size:.8rem;border-radius:8px}
+.btn.primary{background:var(--learn);border-color:var(--learn);color:var(--on-learn)}
+.btn.infer{background:var(--infer);border-color:var(--infer);color:var(--on-infer)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.block{width:100%}
+.library.drop-ok{outline:3px dashed var(--learn);outline-offset:3px}
+.library.drop-over{background:var(--learn-soft)}
+
+/* Bench */
+.bench{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tab{display:flex;align-items:center;gap:8px;border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:1rem}
+.tab .dot{width:12px;height:12px;border-radius:50%;border:2px solid currentColor}
+.tab[aria-selected="true"] .dot{background:currentColor}
+.tab.t-train[aria-selected="true"]{background:var(--learn);border-color:var(--learn);color:var(--on-learn)}
+.tab.t-infer[aria-selected="true"]{background:var(--infer);border-color:var(--infer);color:var(--on-infer)}
+.mode-desc{margin:10px 0 16px;max-width:75ch}
+.tabs{margin-bottom:16px}
+body[data-mode="train"] .only-infer, body[data-mode="infer"] .only-train{display:none !important}
+
+.stage{display:grid;grid-template-columns:minmax(230px,1fr) 34px auto 34px minmax(250px,1fr);align-items:stretch;gap:0}
+@media (max-width:1320px){.stage{grid-template-columns:1fr}.cable{height:34px;width:auto}.cable svg{transform:rotate(90deg)}}
+.col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.cable{display:flex;align-items:center;justify-content:center;color:var(--line)}
+.cable svg{width:34px;height:34px;overflow:visible}
+body[data-mode="train"] .cable{color:var(--learn)}
+body[data-mode="infer"] .cable{color:var(--infer)}
+.cable.pulse svg{animation:pulse .35s ease-out}
+@keyframes pulse{50%{transform:scale(1.35)}}
+@media (max-width:1320px){.cable.pulse svg{animation:pulse-v .35s ease-out}@keyframes pulse-v{0%,100%{transform:rotate(90deg)}50%{transform:rotate(90deg) scale(1.35)}}}
+
+.zone{border:2px dashed var(--line);border-radius:14px;padding:12px;background:var(--surface-2);transition:background .15s,border-color .15s;min-height:120px}
+.zone .zhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+body.dragging .zone.drop-ok{border-color:var(--learn);background:var(--learn-soft)}
+body.dragging .zone.z-infer.drop-ok{border-color:var(--infer);background:var(--infer-soft)}
+.zone.drop-over{border-style:solid;box-shadow:0 0 0 4px var(--learn-soft)}
+.zone.z-infer.drop-over{box-shadow:0 0 0 4px var(--infer-soft)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;min-height:32px}
+.chip{display:inline-flex;align-items:center;gap:4px;border:1.5px solid var(--learn);color:var(--learn);background:var(--surface);border-radius:99px;padding:2px 4px 2px 10px;font-weight:700;font-size:.85rem}
+.chip button{border:0;background:transparent;cursor:pointer;padding:0 6px;font-size:1rem;line-height:1;color:inherit}
+.empty{color:var(--muted);font-size:.9rem;padding:6px 0}
+.dragchip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:10px;padding:5px 10px;background:var(--surface);cursor:grab;touch-action:none;user-select:none;font-weight:700;font-size:.88rem}
+.row-actions{display:flex;flex-wrap:wrap;gap:6px}
+.field{display:flex;flex-direction:column;gap:2px;font-size:.85rem;color:var(--muted)}
+.lr{display:flex;align-items:center;gap:10px}
+.lr input[type=range]{flex:1;accent-color:var(--learn)}
+.lr output{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);min-width:3.5em;text-align:right}
+select{border:1.5px solid var(--line);border-radius:8px;background:var(--surface);padding:4px 8px}
+
+/* Device */
+.slot{border-radius:22px;min-height:300px;display:flex;align-items:stretch;justify-content:center}
+.slot.empty-slot{border:3px dashed var(--line);align-items:center;padding:24px;text-align:center;color:var(--muted);min-width:min(470px,100%)}
+.slot.empty-slot .big{font-family:var(--display);font-size:1.3rem;font-weight:600;color:var(--ink)}
+body.dragging .slot.drop-ok{border-color:var(--learn);background:var(--learn-soft)}
+.slot.drop-over{box-shadow:0 0 0 5px var(--learn-soft)}
+.device{background:var(--device);color:var(--device-ink);border-radius:22px;padding:14px 16px 16px;width:100%;max-width:520px;margin:0 auto;box-shadow:inset 0 0 0 2px var(--device-2)}
+.dhead{display:flex;align-items:center;gap:10px;padding:4px 6px 10px;border-bottom:1px solid var(--device-2);cursor:grab;touch-action:none;user-select:none}
+.dhead .grip{color:var(--device-muted)}
+.dname{font-family:var(--display);font-weight:800;font-size:1.15rem;line-height:1.1}
+.dsub{font-size:.78rem;color:var(--device-muted)}
+.dhead .btn{margin-left:auto;background:transparent;color:var(--device-ink);border-color:var(--device-muted)}
+.knobs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 8px}
+@media (max-width:480px){.knobs{grid-template-columns:repeat(2,1fr)}}
+.kw{display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.knob{width:96px;max-width:100%;aspect-ratio:1;cursor:ns-resize;touch-action:none;border-radius:50%}
+.knob svg{width:100%;height:100%;display:block}
+.knob .track{fill:none;stroke:var(--device-2);stroke-width:7;stroke-linecap:round}
+.knob .val{fill:none;stroke:var(--learn);stroke-width:7;stroke-linecap:round}
+body[data-mode="infer"] .knob .val{stroke:var(--infer)}
+.knob .zero{stroke:var(--device-muted);stroke-width:2}
+.knob .body{fill:var(--knob);stroke:var(--knob-edge);stroke-width:2}
+.knob .ptr{stroke:var(--device);stroke-width:5;stroke-linecap:round}
+.knob .cap{fill:var(--device)}
+.knob.out .body{stroke-dasharray:3 3}
+.kin{display:flex;align-items:center;gap:4px}
+.kin .sym{font-family:var(--display);font-weight:800;font-size:1.05rem}
+.kin input{width:78px;border-radius:8px;border:1px solid var(--device-muted);background:var(--device-2);color:var(--device-ink);padding:2px 6px;text-align:right;font-variant-numeric:tabular-nums}
+.klabel{font-size:.78rem;color:var(--device-muted);line-height:1.2}
+.kout{font-size:.72rem;font-weight:700;color:var(--device-ink);min-height:1em}
+.formula{background:var(--device-2);border-radius:12px;padding:10px 12px;font-variant-numeric:tabular-nums;font-size:.95rem;line-height:1.6}
+.formula b{font-family:var(--display)}
+.dactions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.dactions .btn{background:transparent;color:var(--device-ink);border-color:var(--device-muted)}
+.dactions .meta{margin-left:auto;font-size:.82rem;color:var(--device-muted)}
+
+/* Output */
+.outbox{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--surface-2)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px 10px}
+.stat .v{font-family:var(--display);font-weight:800;font-size:1.35rem;font-variant-numeric:tabular-nums}
+.stat .l{font-size:.78rem;color:var(--muted)}
+canvas{width:100%;height:170px;display:block;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.msg{font-size:.88rem;border-left:4px solid var(--infer);background:var(--infer-soft);padding:6px 10px;border-radius:6px;margin-top:8px}
+.msg:empty{display:none}
+
+.card{border:2px solid var(--infer);border-radius:14px;background:var(--surface);padding:10px 12px;cursor:grab;touch-action:none;user-select:none;margin-top:10px}
+.card .ctitle{display:flex;align-items:center;gap:8px;font-weight:700}
+.card .cf{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}
+.card input{width:100%;border:1.5px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--surface-2);text-align:right;font-variant-numeric:tabular-nums}
+.bigres{font-family:var(--display);font-weight:800;font-size:3rem;line-height:1;font-variant-numeric:tabular-nums}
+.bigres small{font-size:1.1rem;font-weight:600;color:var(--muted)}
+.scale{position:relative;height:14px;border-radius:7px;background:var(--surface);border:1px solid var(--line);margin:10px 0 2px;overflow:hidden}
+.scale i{position:absolute;left:0;top:0;bottom:0;background:repeating-linear-gradient(45deg,var(--infer) 0 6px,color-mix(in srgb,var(--infer) 70%,var(--surface)) 6px 12px)}
+.scale-l{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
+.breakdown{width:100%;border-collapse:collapse;font-size:.86rem;margin-top:10px;font-variant-numeric:tabular-nums}
+.breakdown td{padding:3px 4px;border-bottom:1px solid var(--line)}
+.breakdown td.n{text-align:right;white-space:nowrap}
+.breakdown tr.sum td{border-bottom:0;font-weight:700}
+.hist{list-style:none;padding:0;margin:8px 0 0;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.hist li{padding:2px 0;border-top:1px dotted var(--line)}
+
+/* Data table */
+.data{margin-top:20px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:16px}
+.data .dh{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.tscroll{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;min-width:760px;font-variant-numeric:tabular-nums}
+.tbl th{font-size:.82rem;text-align:left;color:var(--muted);font-weight:700;padding:6px 8px;border-bottom:2px solid var(--line);vertical-align:bottom}
+.tbl th small{display:block;font-weight:400}
+.tbl td{padding:4px 8px;border-bottom:1px solid var(--line)}
+.tbl td input{width:80px;border:1.5px solid transparent;border-radius:8px;padding:3px 6px;background:var(--surface-2);text-align:right}
+.tbl td input:hover{border-color:var(--line)}
+.tbl td.n{text-align:right}
+.tbl tr.in-train td:first-child{box-shadow:inset 5px 0 0 var(--learn)}
+.tbl .handle{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;cursor:grab;touch-action:none;user-select:none;border:1.5px solid var(--line);background:var(--surface)}
+.tbl .intrain{font-size:.72rem;font-weight:700;color:var(--learn);white-space:nowrap}
+.err-up,.err-down{white-space:nowrap}
+.xcol{width:1%;white-space:nowrap}
+
+.ghost-card{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;margin:0;background:var(--surface);color:var(--ink);border:2px solid var(--learn);box-shadow:0 12px 32px rgba(0,0,0,.28);cursor:grabbing}
+.ghost-card .mname{transform-origin:left}
+.drag-src{opacity:.4}
+.ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;background:var(--ghost-bg);color:var(--ghost-ink);padding:8px 14px;border-radius:10px;font-weight:700;font-size:.9rem;box-shadow:0 8px 24px rgba(0,0,0,.25);white-space:nowrap}
+body.dragging, body.dragging *{cursor:grabbing !important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body data-mode="train">
+<div class="page">
+  <header class="top">
+    <div class="eq">ŷ = w₁·x₁ + w₂·x₂ + w₃·x₃ + b
+      <small>x₁ godziny nauki, x₂ rozwiązane zadania, x₃ nieobecności, ŷ przewidywany wynik (pkt / 100)</small>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="library" id="library" data-drop="library" data-accept="model">
+      <h2>Biblioteka modeli</h2>
+      <div class="lib-list" id="libList"></div>
+      <button class="btn block" id="newModel">Dodaj nowy model</button>
+    </aside>
+
+    <main class="bench">
+      <div class="tabs" role="tablist" aria-label="Proces">
+        <button class="tab t-train" role="tab" aria-selected="true" data-mode="train"><span class="dot"></span>Uczenie</button>
+        <button class="tab t-infer" role="tab" aria-selected="false" data-mode="infer"><span class="dot"></span>Inferencja</button>
+      </div>
+
+      <div class="stage">
+        <!-- Left: input -->
+        <div class="col">
+          <div class="zone z-train only-train" id="trainZone" data-drop="train" data-accept="row rows-all">
+            <div class="zhead"><h3>Zbiór uczący</h3><span class="hint" id="trainCount">0 wierszy</span></div>
+            <div class="chips" id="trainChips"></div>
+            <div class="row-actions">
+              <button class="btn small" id="addAll">Dodaj wszystkie</button>
+              <button class="btn small" id="clearTrain">Wyczyść</button>
+            </div>
+          </div>
+          <div class="only-train">
+            <label class="field">Współczynnik uczenia (jak mocno model przekręca pokrętła w jednym kroku)
+              <span class="lr"><input type="range" id="lr" min="0.005" max="0.5" step="0.005" value="0.05"><output id="lrOut">0,050</output></span>
+            </label>
+            <div class="row-actions" style="margin-top:8px">
+              <button class="btn" id="step1">Wykonaj 1 epokę</button>
+              <select id="epochs" aria-label="Liczba epok"><option value="50">50 epok</option><option value="200" selected>200 epok</option><option value="1000">1000 epok</option><option value="5000">5000 epok</option></select>
+              <button class="btn primary" id="trainBtn">Ucz model</button>
+            </div>
+          </div>
+
+          <div class="zone z-infer only-infer" id="inferZone" data-drop="infer" data-accept="sample row">
+            <div class="zhead"><h3>Dane nowego ucznia</h3></div>
+            <p class="hint">Wpisz dane i przeciągnij kartę na model. Możesz też przeciągnąć tu wiersz z tabeli.</p>
+            <div class="card" id="sampleCard" data-drag="sample" data-ghost="Karta ucznia">
+              <div class="ctitle"><span class="grip">⠿</span>Karta ucznia</div>
+              <div class="cf">
+                <label class="field">Godziny nauki<input type="number" id="sH" value="6" step="0.5" min="0"></label>
+                <label class="field">Zadania<input type="number" id="sZ" value="15" step="1" min="0"></label>
+                <label class="field">Nieobecności<input type="number" id="sN" value="2" step="1" min="0"></label>
+              </div>
+              <button class="btn infer" id="runInfer">Przewiduj wynik</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cable" id="cable1" aria-hidden="true"><svg viewBox="0 0 34 34"><path d="M2 17h24" stroke="currentColor" stroke-width="3" stroke-dasharray="4 3"/><path d="M22 10l8 7-8 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg></div>
+
+        <!-- Middle: model -->
+        <div class="slot" id="slot" data-drop="slot" data-accept="model"></div>
+
+        <div class="cable" id="cable2" aria-hidden="true"><svg viewBox="0 0 34 34"><path d="M2 17h24" stroke="currentColor" stroke-width="3" stroke-dasharray="4 3"/><path d="M22 10l8 7-8 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg></div>
+
+        <!-- Right: output -->
+        <div class="col">
+          <div class="outbox only-train">
+            <h3>Postęp uczenia</h3>
+            <div class="stats">
+              <div class="stat"><div class="v" id="stEpoch">0</div><div class="l">wykonane epoki</div></div>
+              <div class="stat"><div class="v" id="stRmse">—</div><div class="l">średnio model myli się o tyle punktów</div></div>
+            </div>
+            <canvas id="chart" aria-label="Wykres błędu w kolejnych epokach"></canvas>
+            <p class="hint" style="margin-top:6px">Wykres: błąd średniokwadratowy (MSE) na zbiorze uczącym w kolejnych epokach. Obecnie MSE = <b id="stMse">—</b>.</p>
+            <div class="msg" id="trainMsg" role="status"></div>
+          </div>
+
+          <div class="outbox only-infer">
+            <h3>Przewidywany wynik</h3>
+            <div id="inferOut"><p class="empty">Przeciągnij kartę ucznia na model albo kliknij „Przewiduj wynik”.</p></div>
+            <ul class="hist" id="inferHist"></ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <section class="data">
+    <div class="dh">
+      <div>
+        <h2>Dane z poprzednich sprawdzianów</h2>
+      </div>
+      <div class="row-actions">
+        <button class="btn small" id="addRow">Dodaj wiersz</button>
+        <button class="btn small" id="resetRows">Przywróć przykładowe dane</button>
+      </div>
+    </div>
+    <div class="tscroll">
+      <table class="tbl">
+        <thead><tr>
+          <th class="xcol">Uczeń</th><th class="xcol"><span class="sr">Przeciągnij</span></th>
+          <th>Godziny nauki<small>x₁</small></th><th>Rozwiązane zadania<small>x₂</small></th><th>Nieobecności<small>x₃</small></th>
+          <th>Prawdziwy wynik ▲<small>y (pkt), rosnąco</small></th><th>Przewidywanie<small>ŷ</small></th><th>Błąd<small>ŷ − y</small></th><th class="xcol"></th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<script>
+(function(){
+const DEFAULT_ROWS=[
+  {h:2,z:5,n:6,y:15},{h:4,z:10,n:4,y:38},{h:5,z:12,n:3,y:45},{h:6,z:18,n:2,y:58},{h:8,z:20,n:2,y:64},
+  {h:10,z:25,n:1,y:76},{h:12,z:30,n:0,y:88},{h:3,z:8,n:5,y:27},{h:7,z:15,n:3,y:52},{h:15,z:40,n:0,y:97}
+];
+const SCALE=[10,25,4];
+const KNOBS=[
+  {k:0,sym:'w₁',label:'godziny nauki',min:-10,max:10,step:0.1},
+  {k:1,sym:'w₂',label:'rozwiązane zadania',min:-5,max:5,step:0.05},
+  {k:2,sym:'w₃',label:'nieobecności',min:-15,max:15,step:0.1},
+  {k:'b',sym:'b',label:'wyraz wolny (start)',min:-50,max:100,step:0.5}
+];
+let rows=[], nextRow=1;
+function sortRows(){rows.sort((a,b)=>a.y-b.y);}
+function resetRows(){rows=DEFAULT_ROWS.map(r=>({id:nextRow++,...r}));sortRows();}
+resetRows();
+const r2=v=>Math.round(v*100)/100;
+const rnd=(a,b)=>r2(a+Math.random()*(b-a));
+const models=[
+  {id:'m1',name:'Model A',desc:'Czysta karta: wszystkie pokrętła na zero',w:[0,0,0],b:0,hist:[]},
+  {id:'m2',name:'Model B',desc:'Pokrętła ustawione losowo',w:[rnd(-5,5),rnd(-2,2),rnd(-8,8)],b:rnd(-20,60),hist:[]},
+  {id:'m3',name:'Model C',desc:'Ustawiony odwrotnie do intuicji',w:[-2,-0.5,6],b:70,hist:[]}
+];
+let nextModel=4;
+const S={program:null,mode:'train',lr:0.05,train:new Set(),sample:null,infHist:[],running:null};
+const $=id=>document.getElementById(id);
+const fmt=(v,d=2)=>Number.isFinite(v)?v.toLocaleString('pl-PL',{minimumFractionDigits:d,maximumFractionDigits:d}):'—';
+const signed=(v,d=2)=>Number.isFinite(v)?(v<0?'− ':'+ ')+fmt(Math.abs(v),d):'—';
+const cur=()=>models.find(m=>m.id===S.program)||null;
+const predict=(m,x)=>m.w[0]*x[0]+m.w[1]*x[1]+m.w[2]*x[2]+m.b;
+const getP=(m,k)=>k==='b'?m.b:m.w[k];
+const setP=(m,k,v)=>{if(k==='b')m.b=v;else m.w[k]=v;};
+const trainRows=()=>[...S.train].map(id=>rows.find(r=>r.id===id)).filter(Boolean);
+function mse(m,data){if(!data.length)return NaN;let s=0;for(const r of data){const e=predict(m,[r.h,r.z,r.n])-r.y;s+=e*e;}return s/data.length;}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- Library ---------- */
+function modelCardHTML(m,loaded,ghost){
+  const drag=(loaded||ghost)?'':`data-drag="model" data-payload="${m.id}" data-ghost="${esc(m.name)}"`;
+  return `<div class="mcard${loaded?' loaded':''}${ghost?' ghost-card':''}" ${drag}>
+      <div class="mname">${loaded?'':'<span class="grip">⠿</span>'}${esc(m.name)} <span class="badge">na stole</span></div>
+      <div class="mdesc">${esc(m.desc)}</div>
+      <div class="mw"><span><b>w₁</b>${fmt(m.w[0])}</span><span><b>w₂</b>${fmt(m.w[1])}</span><span><b>w₃</b>${fmt(m.w[2])}</span><span><b>b</b>${fmt(m.b)}</span></div>
+      <div class="mfoot"><span>${m.hist.length} epok</span>${(loaded||ghost)?'':`<button class="btn small" data-load="${m.id}">Wstaw</button>`}</div>
+    </div>`;
+}
+function renderLibrary(){
+  $('libList').innerHTML=models.map(m=>modelCardHTML(m,m.id===S.program,false)).join('');
+}
+$('libList').addEventListener('click',e=>{const b=e.target.closest('[data-load]');if(b)loadModel(b.dataset.load);});
+$('newModel').addEventListener('click',()=>{const L=String.fromCharCode(64+nextModel++);models.push({id:'m'+Date.now(),name:'Model '+L,desc:'Nowy model: pokrętła na zero',w:[0,0,0],b:0,hist:[]});renderLibrary();});
+
+function loadModel(id){stopTraining();S.program=id;renderLibrary();renderSlot();onModelChanged();setMsg('');}
+function unloadModel(){stopTraining();S.program=null;renderLibrary();renderSlot();onModelChanged();}
+
+/* ---------- Device / knobs ---------- */
+function pt(r,deg){const a=(deg-90)*Math.PI/180;return[50+r*Math.cos(a),50+r*Math.sin(a)];}
+function arc(r,a0,a1){if(a1<a0)[a0,a1]=[a1,a0];if(a1-a0<0.01)a1=a0+0.01;const[x0,y0]=pt(r,a0),[x1,y1]=pt(r,a1);return`M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${a1-a0>180?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;}
+const angOf=(K,v)=>-135+270*(Math.min(K.max,Math.max(K.min,v))-K.min)/(K.max-K.min);
+
+function renderSlot(){
+  const slot=$('slot'), m=cur();
+  if(!m){slot.className='slot empty-slot';slot.innerHTML=`<div><div class="big">Tu wstaw model</div><p class="hint">Przeciągnij model z biblioteki na to miejsce.</p></div>`;return;}
+  slot.className='slot';
+  slot.innerHTML=`<div class="device">
+    <div class="dhead" data-drag="model" data-payload="${m.id}" data-ghost="${esc(m.name)}">
+      <span class="grip">⠿</span><div><div class="dname">${esc(m.name)}</div><div class="dsub">Upuść tu inny model, aby go wymienić</div></div>
+      <button class="btn small" id="eject">Odłóż</button>
+    </div>
+    <div class="knobs">${KNOBS.map((K,i)=>{const z=angOf(K,0);const[zx0,zy0]=pt(36,z),[zx1,zy1]=pt(47,z);return`
+      <div class="kw">
+        <div class="knob" role="slider" tabindex="0" data-i="${i}" aria-label="${K.sym}, ${K.label}" aria-valuemin="${K.min}" aria-valuemax="${K.max}">
+          <svg viewBox="0 0 100 100"><path class="track" d="${arc(42,-135,135)}"/><line class="zero" x1="${zx0}" y1="${zy0}" x2="${zx1}" y2="${zy1}"/><path class="val" d=""/>
+          <circle class="body" cx="50" cy="50" r="31"/><g class="ptrg"><line class="ptr" x1="50" y1="46" x2="50" y2="24"/></g><circle class="cap" cx="50" cy="50" r="4"/></svg>
+        </div>
+        <label class="kin"><span class="sym">${K.sym}</span><input type="number" step="${K.step}" data-i="${i}" aria-label="Wartość ${K.sym}"></label>
+        <div class="klabel">${K.label}</div><div class="kout" data-out="${i}"></div>
+      </div>`;}).join('')}</div>
+    <div class="formula" id="formula"></div>
+    <div class="dactions"><button class="btn small" id="zeroBtn">Wyzeruj pokrętła</button><button class="btn small" id="randBtn">Losuj</button><span class="meta" id="dmeta"></span></div>
+  </div>`;
+  $('eject').onclick=unloadModel;
+  $('zeroBtn').onclick=()=>{stopTraining();m.w=[0,0,0];m.b=0;m.hist=[];onModelChanged();drawChart();setMsg('');};
+  $('randBtn').onclick=()=>{stopTraining();m.w=[rnd(-5,5),rnd(-2,2),rnd(-8,8)];m.b=rnd(-20,60);m.hist=[];onModelChanged();drawChart();setMsg('');};
+  slot.querySelectorAll('.knob').forEach(el=>bindKnob(el,KNOBS[+el.dataset.i]));
+  slot.querySelectorAll('.kin input').forEach(inp=>inp.addEventListener('input',()=>{const v=parseFloat(inp.value);if(Number.isFinite(v)){stopTraining();setP(m,KNOBS[+inp.dataset.i].k,v);onModelChanged(inp);}}));
+}
+function bindKnob(el,K){
+  const setV=v=>{const m=cur();if(!m)return;v=Math.round(v/K.step)*K.step;v=Math.min(K.max,Math.max(K.min,v));setP(m,K.k,r2(v));onModelChanged();};
+  el.addEventListener('pointerdown',e=>{
+    const m=cur();if(!m)return;e.preventDefault();stopTraining();el.setPointerCapture(e.pointerId);el.focus();
+    const x0=e.clientX,y0=e.clientY,v0=getP(m,K.k),range=K.max-K.min;
+    const mv=ev=>setV(v0+((y0-ev.clientY)+(ev.clientX-x0))*range/(ev.shiftKey?900:240));
+    const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up);};
+    el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+  });
+  el.addEventListener('wheel',e=>{const m=cur();if(!m)return;e.preventDefault();stopTraining();setV(getP(m,K.k)+(e.deltaY<0?1:-1)*K.step*(e.shiftKey?10:1));},{passive:false});
+  el.addEventListener('keydown',e=>{const m=cur();if(!m)return;const big=e.shiftKey?10:1;let d=0;
+    if(e.key==='ArrowUp'||e.key==='ArrowRight')d=1;else if(e.key==='ArrowDown'||e.key==='ArrowLeft')d=-1;else if(e.key==='Home'){setV(K.min);e.preventDefault();return}else if(e.key==='End'){setV(K.max);e.preventDefault();return}else return;
+    e.preventDefault();stopTraining();setV(getP(m,K.k)+d*K.step*big);});
+}
+function updateDevice(skipInput){
+  const m=cur();if(!m)return;
+  document.querySelectorAll('#slot .knob').forEach(el=>{
+    const K=KNOBS[+el.dataset.i],v=getP(m,K.k),a=angOf(K,v),z=angOf(K,0);
+    el.querySelector('.val').setAttribute('d',arc(42,z,a));
+    el.querySelector('.ptrg').setAttribute('transform',`rotate(${a.toFixed(2)} 50 50)`);
+    el.setAttribute('aria-valuenow',v);el.setAttribute('aria-valuetext',fmt(v));
+    const out=v<K.min||v>K.max;el.classList.toggle('out',out);
+    document.querySelector(`#slot [data-out="${el.dataset.i}"]`).textContent=out?'poza skalą pokrętła':'';
+  });
+  document.querySelectorAll('#slot .kin input').forEach(inp=>{if(inp!==skipInput&&document.activeElement!==inp)inp.value=r2(getP(m,KNOBS[+inp.dataset.i].k));});
+  $('formula').innerHTML=`<b>ŷ</b> = ${fmt(m.w[0])}·godziny ${signed(m.w[1])}·zadania ${signed(m.w[2])}·nieobecności ${signed(m.b)}`;
+  $('dmeta').textContent=`${m.hist.length} epok uczenia`;
+}
+
+/* ---------- Table ---------- */
+function renderTable(){
+  $('tbody').innerHTML=rows.map((r,i)=>`<tr data-id="${r.id}">
+    <td class="xcol">#${i+1} <span class="intrain" data-tr></span></td>
+    <td class="xcol"><span class="handle" data-drag="row" data-payload="${r.id}" data-ghost="Uczeń #${i+1}" title="Przeciągnij wiersz">⠿</span></td>
+    <td><input type="number" step="0.5" min="0" data-f="h" value="${r.h}" aria-label="Godziny nauki, uczeń ${i+1}"></td>
+    <td><input type="number" step="1" min="0" data-f="z" value="${r.z}" aria-label="Zadania, uczeń ${i+1}"></td>
+    <td><input type="number" step="1" min="0" data-f="n" value="${r.n}" aria-label="Nieobecności, uczeń ${i+1}"></td>
+    <td><input type="number" step="1" min="0" max="100" data-f="y" value="${r.y}" aria-label="Wynik, uczeń ${i+1}"></td>
+    <td class="n" data-p></td><td class="n" data-e></td>
+    <td class="xcol"><button class="btn small" data-use="${r.id}"></button> <button class="btn small" data-del="${r.id}" aria-label="Usuń wiersz ${i+1}">Usuń</button></td>
+  </tr>`).join('');
+  updateTable();
+}
+function updateTable(){
+  const m=cur();
+  $('tbody').querySelectorAll('tr').forEach(tr=>{
+    const r=rows.find(x=>x.id===+tr.dataset.id);if(!r)return;
+    const inT=S.train.has(r.id);tr.classList.toggle('in-train',inT);
+    tr.querySelector('[data-tr]').textContent=inT?'w zbiorze':'';
+    const u=tr.querySelector('[data-use]');
+    if(S.mode==='train'){u.textContent=inT?'Wyjmij':'Do uczenia';}else{u.textContent='Przewiduj';}
+    if(m){const p=predict(m,[r.h,r.z,r.n]),e=p-r.y;
+      tr.querySelector('[data-p]').textContent=fmt(p,1);
+      tr.querySelector('[data-e]').innerHTML=Math.abs(e)<0.05?'0,0':`<span class="${e>0?'err-up':'err-down'}">${signed(e,1)} ${e>0?'▲ za wysoko':'▼ za nisko'}</span>`;
+    }else{tr.querySelector('[data-p]').textContent='—';tr.querySelector('[data-e]').textContent='—';}
+  });
+}
+$('tbody').addEventListener('input',e=>{const inp=e.target.closest('input[data-f]');if(!inp)return;const r=rows.find(x=>x.id===+inp.closest('tr').dataset.id);const v=parseFloat(inp.value);r[inp.dataset.f]=Number.isFinite(v)?v:0;onModelChanged();});
+$('tbody').addEventListener('click',e=>{
+  const d=e.target.closest('[data-del]');if(d){const id=+d.dataset.del;rows=rows.filter(r=>r.id!==id);S.train.delete(id);renderTable();renderTrainZone();onModelChanged();return;}
+  const u=e.target.closest('[data-use]');if(u){const id=+u.dataset.use;if(S.mode==='train'){S.train.has(id)?S.train.delete(id):S.train.add(id);renderTrainZone();onModelChanged();}else useRowForInference(id);}
+});
+$('addRow').onclick=()=>{rows.push({id:nextRow++,h:5,z:10,n:2,y:50});sortRows();renderTable();renderTrainZone();};
+// After the true score is edited (on leaving the field), keep the table sorted ascending by score
+$('tbody').addEventListener('change',e=>{const inp=e.target.closest('input[data-f="y"]');if(!inp)return;const before=rows.map(r=>r.id).join();sortRows();if(rows.map(r=>r.id).join()!==before){renderTable();renderTrainZone();}});
+$('resetRows').onclick=()=>{S.train.clear();resetRows();renderTable();renderTrainZone();onModelChanged();};
+
+/* ---------- Training ---------- */
+function renderTrainZone(){
+  const ids=[...S.train].filter(id=>rows.some(r=>r.id===id));
+  $('trainChips').innerHTML=ids.length?ids.map(id=>{const i=rows.findIndex(r=>r.id===id);return`<span class="chip">Uczeń #${i+1}<button data-rm="${id}" aria-label="Usuń ucznia ${i+1} ze zbioru">×</button></span>`;}).join(''):'<span class="empty">Przeciągnij tu wiersze z tabeli.</span>';
+  $('trainCount').textContent=ids.length===1?'1 wiersz':`${ids.length} ${ids.length%10>=2&&ids.length%10<=4&&(ids.length%100<10||ids.length%100>=20)?'wiersze':'wierszy'}`;
+  updateTable();
+}
+$('trainChips').addEventListener('click',e=>{const b=e.target.closest('[data-rm]');if(b){S.train.delete(+b.dataset.rm);renderTrainZone();onModelChanged();}});
+$('addAll').onclick=()=>{rows.forEach(r=>S.train.add(r.id));renderTrainZone();onModelChanged();};
+$('clearTrain').onclick=()=>{S.train.clear();renderTrainZone();onModelChanged();};
+$('lr').addEventListener('input',()=>{S.lr=parseFloat($('lr').value);$('lrOut').textContent=fmt(S.lr,3);});
+
+function setMsg(t){$('trainMsg').textContent=t;}
+function canTrain(){
+  if(!cur()){setMsg('Najpierw wstaw model z biblioteki na stół roboczy.');return false;}
+  if(!trainRows().length){setMsg('Zbiór uczący jest pusty. Przeciągnij wiersze z tabeli albo kliknij „Dodaj wszystkie”.');return false;}
+  setMsg('');return true;
+}
+function step(m,data){
+  const N=data.length;let g=[0,0,0],gb=0;
+  for(const r of data){const x=[r.h,r.z,r.n],e=predict(m,x)-r.y;for(let i=0;i<3;i++)g[i]+=2*e*x[i]/N;gb+=2*e/N;}
+  for(let i=0;i<3;i++)m.w[i]-=S.lr*g[i]/(SCALE[i]*SCALE[i]);
+  m.b-=S.lr*gb;
+  const L=mse(m,data);m.hist.push(L);return L;
+}
+function pulse(){['cable1','cable2'].forEach(id=>{const c=$(id);c.classList.remove('pulse');void c.offsetWidth;c.classList.add('pulse');});}
+function diverged(L){return !Number.isFinite(L)||L>1e7;}
+function divergeMsg(){setMsg('Wagi „wystrzeliły” – współczynnik uczenia jest za duży, więc model przeskakuje minimum błędu coraz dalej. Zmniejsz współczynnik i wyzeruj pokrętła.');}
+$('step1').onclick=()=>{if(!canTrain())return;stopTraining();const L=step(cur(),trainRows());pulse();onModelChanged();drawChart();if(diverged(L))divergeMsg();};
+$('trainBtn').onclick=()=>{if(S.running){stopTraining();return;}if(!canTrain())return;startTraining(+$('epochs').value);};
+function startTraining(n){
+  const m=cur();let left=n;const per=Math.max(1,Math.ceil(n/150));
+  $('trainBtn').textContent='Zatrzymaj';
+  const tick=()=>{
+    const data=trainRows();if(!data.length||cur()!==m){stopTraining();return;}
+    let L;for(let i=0;i<per&&left>0;i++,left--){L=step(m,data);if(diverged(L))break;}
+    pulse();onModelChanged();drawChart();
+    if(diverged(L)){divergeMsg();stopTraining();return;}
+    if(left>0&&S.running)S.running=requestAnimationFrame(tick);else stopTraining();
+  };
+  S.running=requestAnimationFrame(tick);
+}
+function stopTraining(){if(S.running)cancelAnimationFrame(S.running);S.running=null;$('trainBtn').textContent='Ucz model';}
+function updateStats(){
+  const m=cur(),data=trainRows();
+  $('stEpoch').textContent=m?m.hist.length:0;
+  const L=m?mse(m,data):NaN;
+  $('stMse').textContent=Number.isFinite(L)?fmt(L,1):'—';
+  $('stRmse').textContent=Number.isFinite(L)?'±'+fmt(Math.sqrt(L),1):'—';
+}
+function cssVar(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+function drawChart(){
+  const c=$('chart'),dpr=window.devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;
+  if(!W)return;c.width=W*dpr;c.height=H*dpr;const g=c.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+  const m=cur(),h=m?m.hist.filter(Number.isFinite):[];
+  const pad={l:48,r:10,t:10,b:24};
+  g.font='12px '+cssVar('--body');g.fillStyle=cssVar('--muted');g.strokeStyle=cssVar('--line');g.lineWidth=1;
+  g.beginPath();g.moveTo(pad.l,pad.t);g.lineTo(pad.l,H-pad.b);g.lineTo(W-pad.r,H-pad.b);g.stroke();
+  if(h.length<1){g.fillText('Brak epok – uruchom uczenie',pad.l+10,H/2);return;}
+  const max=Math.max(...h.map(v=>Math.min(v,1e7)))||1,n=h.length;
+  const X=i=>pad.l+(n<=1?0:(i/(n-1))*(W-pad.l-pad.r)),Y=v=>H-pad.b-(Math.min(v,max)/max)*(H-pad.t-pad.b);
+  g.textAlign='right';g.fillText(fmt(max,0),pad.l-6,pad.t+10);g.fillText('0',pad.l-6,H-pad.b);
+  g.textAlign='left';g.fillText('epoka 1',pad.l,H-6);g.textAlign='right';g.fillText('epoka '+n,W-pad.r,H-6);
+  g.strokeStyle=cssVar('--learn');g.lineWidth=2.5;g.beginPath();
+  const stepI=Math.max(1,Math.floor(n/600));
+  for(let i=0;i<n;i+=stepI){i===0?g.moveTo(X(i),Y(h[i])):g.lineTo(X(i),Y(h[i]));}
+  g.lineTo(X(n-1),Y(h[n-1]));g.stroke();
+  g.fillStyle=cssVar('--learn');g.beginPath();g.arc(X(n-1),Y(h[n-1]),4,0,Math.PI*2);g.fill();
+}
+window.addEventListener('resize',drawChart);
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change',drawChart);
+
+/* ---------- Inference ---------- */
+function readSample(){const f=id=>{const v=parseFloat($(id).value);return Number.isFinite(v)?v:0;};return[f('sH'),f('sZ'),f('sN')];}
+function runInference(record){
+  const m=cur();
+  if(!m){$('inferOut').innerHTML='<p class="msg">Najpierw wstaw model z biblioteki na stół roboczy.</p>';return;}
+  S.sample=readSample();pulse();renderInfer();
+  if(record){const p=predict(m,S.sample);S.infHist.unshift(`${m.name}: ${fmt(S.sample[0],1)} h, ${fmt(S.sample[1],0)} zad., ${fmt(S.sample[2],0)} nieob. → ${fmt(p,1)} pkt`);S.infHist=S.infHist.slice(0,6);
+    $('inferHist').innerHTML=S.infHist.map(t=>`<li>${esc(t)}</li>`).join('');}
+}
+function renderInfer(){
+  const m=cur();if(!S.sample)return;
+  if(!m){$('inferOut').innerHTML='<p class="msg">Na stole nie ma modelu. Przeciągnij model z biblioteki.</p>';return;}
+  const x=S.sample,c=[m.w[0]*x[0],m.w[1]*x[1],m.w[2]*x[2]],p=c[0]+c[1]+c[2]+m.b,clamped=Math.min(100,Math.max(0,p));
+  $('inferOut').innerHTML=`<div class="bigres">${fmt(p,1)} <small>pkt</small></div>
+    <div class="scale" aria-hidden="true"><i style="width:${clamped}%"></i></div><div class="scale-l"><span>0</span><span>50</span><span>100 pkt</span></div>
+    ${p<0||p>100?'<p class="msg">Model podał wartość spoza skali 0–100. Prawdziwy wynik nie może taki być – to znak, że pokrętła są źle ustawione albo dane ucznia bardzo odbiegają od danych uczących.</p>':''}
+    <table class="breakdown"><tbody>
+      <tr><td>Godziny nauki</td><td class="n">${fmt(m.w[0])} × ${fmt(x[0],1)}</td><td class="n">${signed(c[0],1)}</td></tr>
+      <tr><td>Rozwiązane zadania</td><td class="n">${fmt(m.w[1])} × ${fmt(x[1],0)}</td><td class="n">${signed(c[1],1)}</td></tr>
+      <tr><td>Nieobecności</td><td class="n">${fmt(m.w[2])} × ${fmt(x[2],0)}</td><td class="n">${signed(c[2],1)}</td></tr>
+      <tr><td>Wyraz wolny b</td><td class="n"></td><td class="n">${signed(m.b,1)}</td></tr>
+      <tr class="sum"><td>Przewidywany wynik</td><td></td><td class="n">${fmt(p,1)}</td></tr>
+    </tbody></table>`;
+}
+$('runInfer').onclick=()=>runInference(true);
+function useRowForInference(id){const r=rows.find(x=>x.id===id);if(!r)return;$('sH').value=r.h;$('sZ').value=r.z;$('sN').value=r.n;runInference(true);}
+
+/* ---------- Mode ---------- */
+function setMode(mode){
+  S.mode=mode;document.body.dataset.mode=mode;
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.mode===mode));
+  if(mode==='infer')stopTraining();
+  updateTable();if(mode==='train')requestAnimationFrame(drawChart);
+}
+
+
+function onModelChanged(skipInput){updateDevice(skipInput);updateTable();updateStats();renderInfer();renderLibraryLite();}
+function renderLibraryLite(){ // update numbers without rebuilding while not dragging
+  if(document.body.classList.contains('dragging'))return;
+  const m=cur();if(!m)return;
+  const card=[...$('libList').children][models.indexOf(m)];if(!card)return;
+  const s=card.querySelectorAll('.mw span');[m.w[0],m.w[1],m.w[2],m.b].forEach((v,i)=>{s[i].lastChild.textContent=fmt(v);});
+  card.querySelector('.mfoot span').textContent=`${m.hist.length} epok`;
+}
+
+/* ---------- Drag & drop (pointer-based, works with mouse, pen and touch) ---------- */
+let D=null;
+document.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return;
+  const src=e.target.closest('[data-drag]');if(!src)return;
+  if(e.target.closest('input,button,select,textarea,.knob,label.field'))return;
+  D={src,type:src.dataset.drag,payload:src.dataset.payload,x0:e.clientX,y0:e.clientY,active:false,ghost:null,target:null};
+});
+document.addEventListener('pointermove',e=>{
+  if(!D)return;
+  if(!D.active){if(Math.hypot(e.clientX-D.x0,e.clientY-D.y0)<6)return;
+    D.active=true;
+    const gm=D.type==='model'?models.find(x=>x.id===D.payload):null;
+    if(gm){const w=document.createElement('div');w.innerHTML=modelCardHTML(gm,false,true);D.ghost=w.firstElementChild;D.ghost.style.width=Math.min(240,Math.max(200,D.src.classList.contains('mcard')?D.src.offsetWidth:220))+'px';}
+    else{D.ghost=document.createElement('div');D.ghost.className='ghost';D.ghost.textContent=D.src.dataset.ghost||'…';}
+    document.body.appendChild(D.ghost);D.src.classList.add('drag-src');
+    document.body.classList.add('dragging');
+    document.querySelectorAll('[data-drop]').forEach(z=>{if(z.dataset.accept.split(' ').includes(D.type))z.classList.add('drop-ok');});
+  }
+  e.preventDefault();
+  const off=D.ghost.classList.contains("ghost-card")?-18:12;D.ghost.style.transform=`translate(${e.clientX+off}px,${e.clientY+off}px) rotate(${off<0?-2:0}deg)`;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  let t=el&&el.closest('[data-drop]');
+  if(t&&!t.dataset.accept.split(' ').includes(D.type))t=null;
+  if(t!==D.target){D.target&&D.target.classList.remove('drop-over');D.target=t;t&&t.classList.add('drop-over');}
+},{passive:false});
+function endDrag(drop){
+  if(!D)return;
+  if(D.active){
+    if(drop&&D.target)handleDrop(D.target.dataset.drop,D.type,D.payload);
+    D.ghost.remove();D.src.classList.remove('drag-src');document.body.classList.remove('dragging');
+    document.querySelectorAll('.drop-ok,.drop-over').forEach(z=>z.classList.remove('drop-ok','drop-over'));
+  }
+  D=null;
+}
+document.addEventListener('pointerup',()=>endDrag(true));
+document.addEventListener('pointercancel',()=>endDrag(false));
+document.addEventListener('keydown',e=>{if(e.key==='Escape')endDrag(false);});
+
+function handleDrop(zone,type,payload){
+  if(zone==='slot'&&type==='model'){if(payload!==S.program)loadModel(payload);}
+  else if(zone==='library'&&type==='model'){if(payload===S.program)unloadModel();}
+  else if(zone==='train'&&type==='row'){S.train.add(+payload);renderTrainZone();onModelChanged();}
+  else if(zone==='train'&&type==='rows-all'){rows.forEach(r=>S.train.add(r.id));renderTrainZone();onModelChanged();}
+  else if(zone==='infer'&&type==='row'){useRowForInference(+payload);}
+  else if(zone==='slot'&&type==='sample'){runInference(true);}
+  else if(zone==='infer'&&type==='sample'){runInference(true);}
+}
+// The model slot also accepts the student card in inference mode
+function syncSlotAccept(){$('slot').dataset.accept=S.mode==='infer'?'model sample':'model';}
+const _setMode=setMode;setMode=function(m){_setMode(m);syncSlotAccept();};
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setMode(t.dataset.mode));
+
+/* ---------- Init ---------- */
+renderLibrary();renderSlot();renderTable();renderTrainZone();setMode('train');updateStats();drawChart();
+})();
+</script>
+</body>
+</html>
