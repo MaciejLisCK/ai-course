@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sposoby uczenia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --paper:#eef2f5; --card:#ffffff; --ink:#18263a; --muted:#5d6b7c; --grid:#d6dee6;
+  --c0:#0072B2; --c1:#D55E00; --c2:#009E73; --un:#8d99a6; --btn:#18263a; --btnfg:#ffffff;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#10161d; --card:#18212b; --ink:#e7edf3; --muted:#9aa8b6; --grid:#26323f;
+    --c0:#56B4E9; --c1:#F0A04B; --c2:#3cc79a; --un:#6f7d8b; --btn:#e7edf3; --btnfg:#10161d;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#10161d; --card:#18212b; --ink:#e7edf3; --muted:#9aa8b6; --grid:#26323f;
+  --c0:#56B4E9; --c1:#F0A04B; --c2:#3cc79a; --un:#6f7d8b; --btn:#e7edf3; --btnfg:#10161d;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; background:var(--paper); color:var(--ink); font-family:var(--body); font-size:17px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 40px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:2px solid var(--ink);border-radius:14px;overflow:hidden;background:var(--card)}
+.tab{font-family:var(--display);font-weight:500;font-size:clamp(14px,2.2vw,20px);padding:14px 8px;border:0;background:transparent;color:var(--ink);cursor:pointer;border-right:2px solid var(--ink)}
+.tab:last-child{border-right:0}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--card);font-weight:800}
+.tab:focus-visible,button:focus-visible,.chip:focus-visible{outline:3px solid var(--c0);outline-offset:2px}
+.panel{display:none;margin-top:16px;background:var(--card);border:2px solid var(--ink);border-radius:6px 6px 14px 14px;padding:14px}
+.panel.on{display:block}
+.stage{width:100%;height:auto;display:block;border-radius:8px;background:var(--paper);touch-action:manipulation}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.bar button{font-family:var(--body);font-weight:700;font-size:16px;padding:10px 16px;border-radius:10px;border:2px solid var(--btn);background:var(--btn);color:var(--btnfg);cursor:pointer}
+.bar button.ghost{background:transparent;color:var(--ink)}
+.bar button:disabled{opacity:.4;cursor:default}
+.stat{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;font-size:18px}
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:10px;color:var(--muted);font-size:15px;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend svg{width:22px;height:22px}
+.two{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+@media (max-width:760px){.two{grid-template-columns:1fr}}
+.box{background:var(--paper);border-radius:8px;padding:14px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-family:var(--body);font-size:20px;padding:8px 12px;border-radius:8px;border:2px solid var(--ink);background:var(--card);color:var(--ink);cursor:pointer;min-width:48px;text-align:center}
+.chip.mask{background:repeating-linear-gradient(45deg,var(--ink) 0 3px,transparent 3px 9px);color:transparent}
+.chip.pred{border-style:dashed;background:var(--card);color:var(--c0);font-weight:700}
+.row{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.row b{font-family:var(--display);font-size:16px;min-width:70px}
+.mini .chip{font-size:15px;padding:4px 8px;min-width:34px;cursor:default}
+.arrow{font-size:26px;font-weight:700;text-align:center;margin:6px 0;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.pop{animation:pop .35s ease-out}
+@keyframes pop{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+.pop{transform-box:fill-box;transform-origin:center}
+</style>
+</head>
+<body>
+<main>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-t="sup">Supervised</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="uns">Unsupervised</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="semi">Semi-supervised</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="self">Self-supervised</button>
+  </div>
+
+  <!-- SUPERVISED -->
+  <section class="panel on" id="sup">
+    <svg class="stage" id="supSvg" viewBox="0 0 600 400"></svg>
+    <div class="bar">
+      <button id="supTrain">Trenuj</button>
+      <button class="ghost" id="supReset">Reset</button>
+      <span class="stat" id="supStat"></span>
+    </div>
+    <div class="legend" id="supLeg"></div>
+  </section>
+
+  <!-- UNSUPERVISED -->
+  <section class="panel" id="uns">
+    <svg class="stage" id="unsSvg" viewBox="0 0 600 400"></svg>
+    <div class="bar">
+      <button id="unsAuto">Grupuj</button>
+      <button class="ghost" id="unsStep">Krok</button>
+      <button class="ghost" id="unsReset">Nowe dane</button>
+      <span class="stat" id="unsStat"></span>
+    </div>
+    <div class="legend" id="unsLeg"></div>
+  </section>
+
+  <!-- SEMI-SUPERVISED -->
+  <section class="panel" id="semi">
+    <svg class="stage" id="semiSvg" viewBox="0 0 600 400"></svg>
+    <div class="bar">
+      <button id="semiAuto">Propaguj</button>
+      <button class="ghost" id="semiStep">Krok</button>
+      <button class="ghost" id="semiReset">Reset</button>
+      <span class="stat" id="semiStat"></span>
+    </div>
+    <div class="legend" id="semiLeg"></div>
+  </section>
+
+  <!-- SELF-SUPERVISED -->
+  <section class="panel" id="self">
+    <div class="two">
+      <div class="box">
+        <div class="chips" id="selfChips"></div>
+        <div class="arrow">↓</div>
+        <div class="row mini"><b>Wejście</b><div class="chips" id="selfIn"></div></div>
+        <div class="row mini"><b>Cel</b><div class="chips" id="selfOut"></div></div>
+      </div>
+      <div class="box">
+        <svg class="stage" id="imgSvg" viewBox="0 0 240 240" style="max-width:340px;margin:0 auto"></svg>
+      </div>
+    </div>
+    <div class="bar">
+      <button id="selfMask">Zamaskuj</button>
+      <button id="selfPred">Przewiduj</button>
+      <button class="ghost" id="selfReset">Reset</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const W=600,H=400;
+function mk(tag,a,p){const e=document.createElementNS(NS,tag);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e}
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let R=rng(7);
+function gauss(){let u=0,v=0;while(!u)u=R();while(!v)v=R();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}
+function blob(cx,cy,sx,sy,n,c){const a=[];for(let i=0;i<n;i++){a.push({x:Math.max(12,Math.min(W-12,cx+gauss()*sx)),y:Math.max(12,Math.min(H-12,cy+gauss()*sy)),c})}return a}
+const COL=['var(--c0)','var(--c1)','var(--c2)'];
+
+// shape: cls -1 unlabeled, 0 circle, 1 triangle, 2 square
+function shape(p,cls,x,y,o={}){
+  const r=o.r||7;
+  if(cls<0) return mk('circle',{cx:x,cy:y,r:o.r||5,fill:'none',stroke:'var(--un)','stroke-width':2},p);
+  const col=COL[cls];
+  const fill=o.hollow?'none':col, st=o.hollow?col:'var(--card)', sw=o.hollow?3:1.5;
+  let e;
+  if(cls===0) e=mk('circle',{cx:x,cy:y,r:r},p);
+  else if(cls===1) e=mk('polygon',{points:`${x},${y-r*1.25} ${x-r*1.15},${y+r*.85} ${x+r*1.15},${y+r*.85}`},p);
+  else e=mk('rect',{x:x-r*.9,y:y-r*.9,width:r*1.8,height:r*1.8},p);
+  e.setAttribute('fill',fill);e.setAttribute('stroke',st);e.setAttribute('stroke-width',sw);
+  if(o.cls)e.setAttribute('class',o.cls);
+  return e;
+}
+function legend(id,items){
+  const L=document.getElementById(id);L.innerHTML='';
+  items.forEach(([cls,label,opt])=>{
+    const s=document.createElement('span');
+    const sv=mk('svg',{viewBox:'0 0 22 22'});shape(sv,cls,11,12,Object.assign({r:6},opt||{}));
+    if(opt&&opt.ring)mk('circle',{cx:11,cy:12,r:10,fill:'none',stroke:'var(--ink)','stroke-width':1.5},sv);
+    s.appendChild(sv);s.append(label);L.appendChild(s);
+  });
+}
+function clear(svg){while(svg.firstChild)svg.removeChild(svg.firstChild)}
+function svgPoint(svg,e){const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse())}
+
+/* ---------- SUPERVISED ---------- */
+const S={svg:document.getElementById('supSvg')};
+function supInit(){
+  R=rng(11);
+  S.pts=blob(190,270,48,42,28,0).concat(blob(410,140,48,42,28,1));
+  S.w=[0.15,1.0,0.25];S.epoch=0;S.err=null;S.tests=[];S.trained=false;
+  stopTimer(S);supRender();
+}
+const nx=x=>x/W*2-1, ny=y=>y/H*2-1;
+function score(x,y){return S.w[0]*nx(x)+S.w[1]*ny(y)+S.w[2]}
+function supEpoch(){
+  let err=0;const order=S.pts.map((_,i)=>i).sort(()=>R()-.5);
+  for(const i of order){const p=S.pts[i];const pred=score(p.x,p.y)>0?1:0;
+    if(pred!==p.c){err++;const t=p.c?1:-1,lr=.12;S.w[0]+=lr*t*nx(p.x);S.w[1]+=lr*t*ny(p.y);S.w[2]+=lr*t}}
+  S.epoch++;S.err=err;S.trained=true;
+  S.tests.forEach(t=>t.c=score(t.x,t.y)>0?1:0);
+  supRender();return err;
+}
+function supRender(){
+  const g=S.svg;clear(g);
+  if(S.trained){
+    for(let x=0;x<W;x+=20)for(let y=0;y<H;y+=20){
+      mk('rect',{x,y,width:20,height:20,fill:COL[score(x+10,y+10)>0?1:0],opacity:.13},g)}
+    const [a,b,c]=S.w;
+    if(Math.abs(b)>1e-6){
+      const y1=(-(a*-1+c)/b+1)/2*H, y2=(-(a*1+c)/b+1)/2*H;
+      mk('line',{x1:0,y1,x2:W,y2,stroke:'var(--ink)','stroke-width':3,'stroke-dasharray':'10 7'},g);
+    }else{const x=(-c/a+1)/2*W;mk('line',{x1:x,y1:0,x2:x,y2:H,stroke:'var(--ink)','stroke-width':3,'stroke-dasharray':'10 7'},g)}
+  }
+  S.pts.forEach(p=>shape(g,p.c,p.x,p.y,{r:7}));
+  S.tests.forEach(t=>{
+    mk('circle',{cx:t.x,cy:t.y,r:17,fill:'var(--card)',stroke:'var(--ink)','stroke-width':2,'stroke-dasharray':'4 3'},g);
+    if(S.trained) shape(g,t.c,t.x,t.y,{r:9,cls:t.fresh?'pop':''});
+    else mk('text',{x:t.x,y:t.y+7,'text-anchor':'middle','font-size':20,'font-weight':700,fill:'var(--ink)','font-family':'var(--body)'},g).textContent='?';
+    t.fresh=false;
+  });
+  document.getElementById('supStat').textContent=S.epoch?`Epoka ${S.epoch} · błędy ${S.err}`:'Epoka 0';
+}
+S.svg.addEventListener('click',e=>{const p=svgPoint(S.svg,e);S.tests.push({x:p.x,y:p.y,c:score(p.x,p.y)>0?1:0,fresh:true});supRender()});
+function stopTimer(o,btn,label){if(o.timer){clearInterval(o.timer);o.timer=null}if(btn)btn.textContent=label}
+const supTrain=document.getElementById('supTrain');
+supTrain.onclick=()=>{
+  if(S.timer){stopTimer(S,supTrain,'Trenuj');return}
+  supTrain.textContent='Stop';
+  S.timer=setInterval(()=>{const e=supEpoch();if(e===0||S.epoch>=60)stopTimer(S,supTrain,'Trenuj')},380);
+};
+document.getElementById('supReset').onclick=()=>{stopTimer(S,supTrain,'Trenuj');supInit()};
+legend('supLeg',[[0,'klasa A'],[1,'klasa B']]);
+
+/* ---------- UNSUPERVISED ---------- */
+const U={svg:document.getElementById('unsSvg'),seed:3};
+function unsInit(){
+  R=rng(U.seed++);
+  const c=[[150+R()*60,110+R()*40],[420+R()*60,110+R()*50],[270+R()*80,300+R()*40]];
+  U.pts=[];c.forEach(([x,y])=>U.pts.push(...blob(x,y,42,36,26,-1)));
+  const idx=[];while(idx.length<3){const i=Math.floor(R()*U.pts.length);if(!idx.includes(i))idx.push(i)}
+  U.cents=idx.map(i=>({x:U.pts[i].x,y:U.pts[i].y}));
+  U.assign=null;U.phase='assign';U.it=0;U.done=false;
+  stopTimer(U);unsRender();
+}
+function unsStep(){
+  if(U.done)return;
+  if(U.phase==='assign'){
+    const na=U.pts.map(p=>{let b=0,bd=1e9;U.cents.forEach((c,k)=>{const d=(p.x-c.x)**2+(p.y-c.y)**2;if(d<bd){bd=d;b=k}});return b});
+    if(U.assign&&na.every((v,i)=>v===U.assign[i]))U.done=true;
+    U.assign=na;U.phase='update';U.it++;
+  }else{
+    U.cents=U.cents.map((c,k)=>{const m=U.pts.filter((_,i)=>U.assign[i]===k);if(!m.length)return c;
+      return{x:m.reduce((s,p)=>s+p.x,0)/m.length,y:m.reduce((s,p)=>s+p.y,0)/m.length}});
+    U.phase='assign';
+  }
+  unsRender();
+}
+function unsRender(){
+  const g=U.svg;clear(g);
+  if(U.assign)U.pts.forEach((p,i)=>{const c=U.cents[U.assign[i]];mk('line',{x1:p.x,y1:p.y,x2:c.x,y2:c.y,stroke:COL[U.assign[i]],'stroke-width':1,opacity:.35},g)});
+  U.pts.forEach((p,i)=>shape(g,U.assign?U.assign[i]:-1,p.x,p.y,{r:7}));
+  U.cents.forEach((c,k)=>{
+    const t=mk('g',{style:'transition:transform .4s ease',transform:`translate(${c.x},${c.y})`},g);
+    mk('circle',{r:20,fill:'var(--card)',stroke:'var(--ink)','stroke-width':2},t);
+    shape(t,k,0,0,{r:11,hollow:true});
+    mk('path',{d:'M-5 0H5M0 -5V5',stroke:'var(--ink)','stroke-width':2.5},t);
+  });
+  document.getElementById('unsStat').textContent=U.done?`Iteracja ${U.it} · stabilne`:`Iteracja ${U.it}`;
+}
+const unsAuto=document.getElementById('unsAuto');
+unsAuto.onclick=()=>{
+  if(U.timer){stopTimer(U,unsAuto,'Grupuj');return}
+  unsAuto.textContent='Stop';
+  U.timer=setInterval(()=>{unsStep();if(U.done)stopTimer(U,unsAuto,'Grupuj')},650);
+};
+document.getElementById('unsStep').onclick=()=>{stopTimer(U,unsAuto,'Grupuj');unsStep()};
+document.getElementById('unsReset').onclick=()=>{stopTimer(U,unsAuto,'Grupuj');unsInit()};
+legend('unsLeg',[[-1,'brak etykiety'],[0,'grupa 1'],[1,'grupa 2'],[2,'grupa 3'],[0,'środek grupy',{hollow:true,ring:true}]]);
+
+/* ---------- SEMI-SUPERVISED ---------- */
+const M={svg:document.getElementById('semiSvg')};
+function semiInit(){
+  R=rng(21);
+  M.pts=blob(180,200,55,85,34,0).concat(blob(420,200,55,85,34,1));
+  M.pts.forEach(p=>{p.lab=-1;p.seed=false});
+  [[0],[1],[34],[35]].forEach(([i])=>{M.pts[i].lab=M.pts[i].c;M.pts[i].seed=true});
+  M.rad=55;M.links=[];M.step=0;M.done=false;
+  stopTimer(M);semiRender();
+}
+function semiStep(){
+  if(M.done)return;
+  const lab=M.pts.filter(p=>p.lab>=0);let newly=[];
+  while(!newly.length){
+    M.pts.forEach(p=>{if(p.lab>=0)return;let best=null,bd=1e9;
+      lab.forEach(q=>{const d=Math.hypot(p.x-q.x,p.y-q.y);if(d<bd){bd=d;best=q}});
+      if(best&&bd<M.rad)newly.push([p,best])});
+    if(!newly.length)M.rad+=15;
+  }
+  newly.forEach(([p,q])=>{p.lab=q.lab;p.fresh=true});
+  M.links=newly;M.step++;
+  if(M.pts.every(p=>p.lab>=0))M.done=true;
+  semiRender();
+}
+function semiRender(){
+  const g=M.svg;clear(g);
+  M.links.forEach(([p,q])=>mk('line',{x1:q.x,y1:q.y,x2:p.x,y2:p.y,stroke:COL[p.lab],'stroke-width':2,opacity:.6},g));
+  M.pts.forEach(p=>{
+    if(p.seed)mk('circle',{cx:p.x,cy:p.y,r:17,fill:'var(--card)',stroke:'var(--ink)','stroke-width':2.5},g);
+    shape(g,p.lab,p.x,p.y,{r:p.seed?10:7,cls:p.fresh?'pop':''});p.fresh=false;
+  });
+  const n=M.pts.filter(p=>p.lab>=0).length;
+  document.getElementById('semiStat').textContent=`Oznaczone ${n} / ${M.pts.length}`;
+}
+const semiAuto=document.getElementById('semiAuto');
+semiAuto.onclick=()=>{
+  if(M.timer){stopTimer(M,semiAuto,'Propaguj');return}
+  semiAuto.textContent='Stop';
+  M.timer=setInterval(()=>{semiStep();if(M.done)stopTimer(M,semiAuto,'Propaguj')},600);
+};
+document.getElementById('semiStep').onclick=()=>{stopTimer(M,semiAuto,'Propaguj');semiStep()};
+document.getElementById('semiReset').onclick=()=>{stopTimer(M,semiAuto,'Propaguj');semiInit()};
+legend('semiLeg',[[0,'etykieta ręczna A',{ring:true}],[1,'etykieta ręczna B',{ring:true}],[0,'etykieta propagowana'],[-1,'brak etykiety']]);
+
+/* ---------- SELF-SUPERVISED ---------- */
+const words='Kot siedzi na ciepłym parapecie i patrzy na ptaki za oknem'.split(' ');
+const IMG=["....XXXX....","..XX....XX..",".X........X.",".X..X..X..X.","X...X..X...X","X..........X","X..X....X..X","X...X..X...X",".X...XX...X.",".X........X.","..XX....XX..","....XXXX...."];
+const T={mask:new Set(),shown:new Set(),imgMask:new Set(),imgShown:new Set(),timers:[]};
+const chipsEl=document.getElementById('selfChips'),inEl=document.getElementById('selfIn'),outEl=document.getElementById('selfOut'),imgSvg=document.getElementById('imgSvg');
+function chip(txt,cls,parent,tag='span'){const c=document.createElement(tag);c.className='chip '+(cls||'');c.textContent=txt;parent.appendChild(c);return c}
+function selfRender(){
+  chipsEl.innerHTML='';inEl.innerHTML='';outEl.innerHTML='';
+  words.forEach((w,i)=>{
+    const m=T.mask.has(i),s=T.shown.has(i);
+    const b=chip(w,m?(s?'pred pop':'mask'):'',chipsEl,'button');
+    b.onclick=()=>{clearTimers();T.shown.clear();T.mask.has(i)?T.mask.delete(i):T.mask.add(i);selfRender()};
+    chip(m?'▢':w,'',inEl);
+    if(m)chip(s?w:'?',s?'pred':'',outEl);
+  });
+  if(!T.mask.size)chip('—','',outEl);
+  // image
+  clear(imgSvg);
+  const defs=mk('defs',{},imgSvg);const pat=mk('pattern',{id:'hatch',width:6,height:6,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'},defs);
+  mk('rect',{width:6,height:6,fill:'var(--card)'},pat);mk('line',{x1:0,y1:0,x2:0,y2:6,stroke:'var(--ink)','stroke-width':2.5},pat);
+  const s=20;
+  IMG.forEach((row,y)=>[...row].forEach((ch,x)=>{
+    const k=y*12+x,masked=T.imgMask.has(k)&&!T.imgShown.has(k);
+    const fill=masked?'url(#hatch)':(ch==='X'?(T.imgShown.has(k)?'var(--c0)':'var(--ink)'):'var(--card)');
+    mk('rect',{x:x*s,y:y*s,width:s,height:s,fill,stroke:'var(--grid)','stroke-width':1,class:T.imgShown.has(k)?'pop':''},imgSvg);
+  }));
+  if(T.imgMask.size){const ks=[...T.imgMask];const xs=ks.map(k=>k%12),ys=ks.map(k=>Math.floor(k/12));
+    mk('rect',{x:Math.min(...xs)*s,y:Math.min(...ys)*s,width:(Math.max(...xs)-Math.min(...xs)+1)*s,height:(Math.max(...ys)-Math.min(...ys)+1)*s,fill:'none',stroke:'var(--ink)','stroke-width':3,'stroke-dasharray':'6 4'},imgSvg)}
+}
+function clearTimers(){T.timers.forEach(clearTimeout);T.timers=[]}
+document.getElementById('selfMask').onclick=()=>{
+  clearTimers();T.mask.clear();T.shown.clear();T.imgMask.clear();T.imgShown.clear();
+  const r=Math.random;
+  while(T.mask.size<3)T.mask.add(Math.floor(r()*words.length));
+  const bx=Math.floor(r()*8),by=Math.floor(r()*8);
+  for(let y=by;y<by+5&&y<12;y++)for(let x=bx;x<bx+5&&x<12;x++)T.imgMask.add(y*12+x);
+  selfRender();
+};
+document.getElementById('selfPred').onclick=()=>{
+  clearTimers();let d=0;
+  [...T.mask].sort((a,b)=>a-b).forEach(i=>{if(T.shown.has(i))return;T.timers.push(setTimeout(()=>{T.shown.add(i);selfRender()},d+=450))});
+  [...T.imgMask].forEach(k=>{if(T.imgShown.has(k))return;T.timers.push(setTimeout(()=>{T.imgShown.add(k);selfRender()},d+=45))});
+};
+document.getElementById('selfReset').onclick=()=>{clearTimers();T.mask.clear();T.shown.clear();T.imgMask.clear();T.imgShown.clear();selfRender()};
+
+/* ---------- tabs ---------- */
+const tabs=[...document.querySelectorAll('.tab')];
+function show(id){tabs.forEach(t=>{const on=t.dataset.t===id;t.setAttribute('aria-selected',on);document.getElementById(t.dataset.t).classList.toggle('on',on)})}
+tabs.forEach(t=>t.onclick=()=>show(t.dataset.t));
+document.addEventListener('keydown',e=>{const i=+e.key;if(i>=1&&i<=4&&!e.target.closest('input,textarea'))show(tabs[i-1].dataset.t)});
+
+supInit();unsInit();semiInit();selfRender();
+})();
+</script>
+</body>
+</html>
