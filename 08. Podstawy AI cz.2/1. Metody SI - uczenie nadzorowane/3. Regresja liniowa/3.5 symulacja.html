@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Regresja liniowa — wynik ze sprawdzianu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e7ebef; --bench:#dfe4e9; --panel:#fbfcfd; --plate:#f1f3f5; --knob:#ffffff; --track:#d3d9df;
+  --ink:#15202b; --muted:#566271; --line:#c9d0d7; --grid:#e4e8ec;
+  --accent:#1f5fbf; --accent-soft:#dde8f8; --orange:#c86400; --orange-soft:#fbe9d6;
+  --font:"Archivo", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11161c; --bench:#161c23; --panel:#1b222a; --plate:#222a33; --knob:#2b343f; --track:#33404d;
+    --ink:#e9eef3; --muted:#9aa7b4; --line:#33404d; --grid:#25303a;
+    --accent:#6ea6ff; --accent-soft:#1e3352; --orange:#f2a33a; --orange-soft:#3d2a12;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11161c; --bench:#161c23; --panel:#1b222a; --plate:#222a33; --knob:#2b343f; --track:#33404d;
+  --ink:#e9eef3; --muted:#9aa7b4; --line:#33404d; --grid:#25303a;
+  --accent:#6ea6ff; --accent-soft:#1e3352; --orange:#f2a33a; --orange-soft:#3d2a12;
+  color-scheme:dark;
+}
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+body.is-dragging{user-select:none;cursor:grabbing}
+
+header{display:flex;flex-wrap:wrap;align-items:center;gap:14px 28px;padding:18px 24px 14px;max-width:1720px;margin:0 auto}
+header h1{margin:0;font-size:1.65rem;font-weight:800;font-stretch:112%;letter-spacing:-.01em;line-height:1.1}
+header .sub{color:var(--muted);margin:2px 0 0;font-size:.95rem}
+.formula-head{font-stretch:95%}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px;margin-left:auto}
+.seg button{border:0;background:none;padding:8px 20px;border-radius:999px;font-weight:650;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+
+main{display:grid;grid-template-columns:250px minmax(0,1fr) minmax(340px,430px);gap:18px;padding:4px 24px 28px;max-width:1720px;margin:0 auto;align-items:start}
+@media (max-width:1200px){main{grid-template-columns:230px minmax(0,1fr)} #side{grid-column:1 / -1}}
+@media (max-width:780px){main{grid-template-columns:1fr;padding:4px 12px 24px} header{padding:14px 12px}}
+
+h2{font-size:1.08rem;font-weight:750;font-stretch:108%;margin:0 0 4px}
+h3{font-size:1rem;font-weight:700;margin:0 0 8px}
+.hint{color:var(--muted);font-size:.85rem;margin:0 0 12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+
+/* Library = rack */
+#library{background:var(--bench);border:1px solid var(--line);border-radius:10px;padding:14px;min-height:200px;transition:background .15s}
+#libList{display:flex;flex-direction:column;gap:12px}
+.libcard{position:relative;background:var(--plate);border:1px solid var(--line);border-radius:6px;padding:10px 12px 10px;cursor:grab;touch-action:none;user-select:none}
+.libcard::before,.libcard::after,.mcard::before,.mcard::after{content:"";position:absolute;top:7px;width:7px;height:7px;border-radius:50%;background:var(--track);box-shadow:inset 0 0 0 1.5px var(--line)}
+.libcard::before,.mcard::before{left:7px}.libcard::after,.mcard::after{right:7px}
+.lc-head{display:flex;align-items:center;gap:8px;padding:0 10px}
+.lc-head strong{font-weight:750;font-stretch:108%}
+.grip{color:var(--muted);font-size:1.05rem;line-height:1}
+.lc-knobs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:6px 0 4px;text-align:center}
+.lc-k svg{display:block;margin:0 auto}
+.lc-k span{font-size:.72rem;color:var(--muted);white-space:nowrap}
+canvas.mini{width:100%;height:92px;display:block;background:var(--panel);border:1px solid var(--line);border-radius:4px}
+.libempty{color:var(--muted);font-size:.88rem;border:1.5px dashed var(--line);border-radius:6px;padding:16px;text-align:center}
+.newbtn{margin-top:12px;width:100%}
+
+.ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;width:230px;box-shadow:0 22px 44px rgba(0,0,0,.28);opacity:.96}
+.dragsrc{opacity:.35}
+.can-drop{outline:2px dashed var(--accent);outline-offset:3px}
+.over{outline-style:solid;outline-width:3px}
+#library.over{background:var(--accent-soft)}
+
+/* Program */
+#program{display:flex;flex-direction:column;gap:16px;min-width:0}
+#slot{position:relative;border-radius:10px;min-height:320px}
+#slot.empty{border:2px dashed var(--line);display:grid;place-items:center;background:var(--bench)}
+#slot.can-drop::after{content:attr(data-hint);position:absolute;inset:0;display:grid;place-items:center;border-radius:10px;background:color-mix(in srgb,var(--accent-soft) 70%,transparent);color:var(--accent);font-weight:750;font-size:1.15rem;pointer-events:none;z-index:5}
+#slot.over::after{background:color-mix(in srgb,var(--accent-soft) 92%,transparent)}
+.slot-empty{text-align:center;color:var(--muted);padding:30px}
+.slot-empty strong{color:var(--ink);font-size:1.1rem}
+.pulse{animation:pulse .5s ease}
+@keyframes pulse{0%{box-shadow:0 0 0 0 var(--accent)}100%{box-shadow:0 0 0 14px transparent}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+
+.mcard{position:relative;background:var(--plate);border:1px solid var(--line);border-radius:10px;padding:14px 18px 16px}
+.mhead{display:flex;align-items:center;gap:10px;cursor:grab;touch-action:none;padding:0 6px 10px;border-bottom:1px solid var(--line)}
+.mhead strong{font-size:1.2rem;font-weight:800;font-stretch:112%}
+.mhead .sp{flex:1}
+.formula{font-size:1.05rem;margin:12px 0 4px;text-align:center}
+.formula b{font-weight:750;padding:1px 6px;border-radius:4px;background:var(--panel);border:1px solid var(--line)}
+.knobs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:8px 0 10px}
+.knob{text-align:center}
+.klabel{font-weight:750;font-size:1.05rem}
+.klabel small{display:block;font-weight:450;color:var(--muted);font-size:.8rem}
+.kdial{width:104px;height:104px;margin:2px auto 2px;cursor:ns-resize;touch-action:none;border-radius:50%}
+.kdial svg{width:100%;height:100%;display:block}
+.kdial.active{background:var(--accent-soft)}
+.kin{width:96px;text-align:center;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--panel);font-weight:650}
+.chartwrap{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:4px}
+#mainChart{width:100%;height:440px;display:block;cursor:grab;touch-action:none}
+#mainChart.rot{cursor:grabbing}
+.views{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 8px}
+.views .hint{margin:0 0 0 auto}
+@media (max-width:780px){#mainChart{height:340px}}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.8rem;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend svg{flex:none}
+
+.btn{border:1px solid var(--line);background:var(--panel);padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.small{padding:4px 10px;font-size:.85rem}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ctrl{margin-top:12px;gap:10px 18px}
+.ctrl label{display:flex;flex-direction:column;font-size:.8rem;color:var(--muted);gap:2px}
+.ctrl label b{color:var(--ink);font-size:.95rem}
+input[type=range]{accent-color:var(--accent);width:160px}
+#trainset{min-height:56px;border:1.5px dashed var(--line);border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start;margin-bottom:10px;background:var(--bench)}
+#trainset.over{background:var(--accent-soft)}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--orange-soft);border:1px solid var(--orange);border-radius:999px;padding:3px 4px 3px 10px;font-size:.82rem}
+.chip button{border:0;background:none;cursor:pointer;padding:0 6px;font-size:.9rem;color:var(--muted)}
+.placeholder{color:var(--muted);font-size:.85rem;padding:8px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin:14px 0 10px}
+.stat{background:var(--plate);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+.stat small{display:block;color:var(--muted);font-size:.75rem}
+.stat b{font-size:1.1rem}
+#lossChart{width:100%;height:150px;display:block;background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.msg{margin:10px 0 0;padding:8px 12px;border-left:4px solid var(--orange);background:var(--orange-soft);border-radius:4px;font-size:.88rem}
+.msg:empty{display:none}
+
+.result{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding:12px 14px;background:var(--plate);border:1px solid var(--line);border-radius:8px;margin-bottom:10px}
+.bignum{font-size:2.3rem;font-weight:800;font-stretch:110%;line-height:1}
+.bignum small{font-size:1rem;font-weight:500;color:var(--muted)}
+.calc{color:var(--muted);font-size:.92rem}
+#inferList{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+#inferList li{display:flex;align-items:center;gap:10px;padding:5px 8px;border-bottom:1px solid var(--grid);font-size:.9rem}
+#inferList li .sp{flex:1}
+#inferList button{border:0;background:none;cursor:pointer;color:var(--muted)}
+
+/* Side */
+#side{display:flex;flex-direction:column;gap:16px;min-width:0}
+.incard{position:relative;background:var(--plate);border:1px solid var(--line);border-left:5px solid var(--ink);border-radius:8px;padding:12px 14px}
+.ic-head{display:flex;align-items:center;gap:8px;cursor:grab;touch-action:none;margin-bottom:8px}
+.ic-head strong{font-weight:750}
+.ic-head .muted{color:var(--muted);font-size:.82rem;margin-left:auto}
+.incard label{display:block;font-size:.88rem;margin:6px 0}
+.incard label output{float:right;font-weight:700}
+.incard input[type=range]{width:100%}
+.mini-ghost{background:var(--plate);border:1px solid var(--line);border-left:5px solid var(--ink);border-radius:8px;padding:10px 14px;font-weight:650;width:auto !important;white-space:nowrap}
+
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th{text-align:left;font-weight:650;color:var(--muted);font-size:.78rem;padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:bottom}
+td{padding:3px 4px;border-bottom:1px solid var(--grid);vertical-align:middle}
+tr.in-train td{background:var(--orange-soft)}
+td.grip{cursor:grab;touch-action:none;width:18px;text-align:center}
+td.who{cursor:grab;white-space:nowrap}
+td input{width:3.8em;padding:3px 4px;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+.badge{display:inline-block;font-size:.7rem;margin-left:4px;color:var(--orange);font-weight:700}
+td.pred{font-weight:650;white-space:nowrap}
+td.err{white-space:nowrap;background-image:linear-gradient(var(--track),var(--track));background-repeat:no-repeat;background-size:var(--e,0%) 5px;background-position:4px 88%}
+td.acts{white-space:nowrap;text-align:right}
+.mini{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:2px 7px;font-size:.78rem;cursor:pointer}
+.mini.x{border-color:transparent;background:none;color:var(--muted)}
+.tfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:8px;flex-wrap:wrap}
+
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(30px);background:var(--ink);color:var(--panel);padding:10px 18px;border-radius:8px;font-weight:600;opacity:0;transition:.2s;pointer-events:none;z-index:2000;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <p class="sub formula-head">ŷ = w₁ · godziny nauki + w₂ · nieobecności + b</p>
+  </div>
+  <div class="seg" role="group" aria-label="Proces">
+    <button id="modeTrain" aria-pressed="true">Uczenie</button>
+    <button id="modeInfer" aria-pressed="false">Inferencja</button>
+  </div>
+</header>
+
+<main>
+  <aside id="library" data-drop="model" aria-label="Biblioteka modeli">
+    <h2>Biblioteka modeli</h2>
+    <p class="hint">Przeciągnij model do programu. Odłóż go tutaj, przeciągając z powrotem.</p>
+    <div id="libList"></div>
+    <button class="btn newbtn" id="btnNew">+ Nowy model</button>
+  </aside>
+
+  <section id="program" aria-label="Program">
+    <div id="slot" data-drop="model row input" data-hint=""></div>
+    <div class="panel" id="proc"></div>
+  </section>
+
+  <section id="side">
+    <div id="inferSide"></div>
+    <div class="panel" id="dataPanel">
+      <h2>Dane uczniów</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th></th><th>Uczeń</th><th>Godziny nauki</th><th>Nieobec&shy;ności</th><th>Wynik y [pkt]</th><th>Predykcja ŷ</th><th>Błąd ŷ − y</th><th></th></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="tfoot">
+        <button class="btn small" id="btnAddRow">+ Dodaj ucznia</button>
+      </div>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const PARAMS=[
+  {k:'w1',sym:'w₁',desc:'waga godzin nauki',min:-20,max:20,step:0.1},
+  {k:'w2',sym:'w₂',desc:'waga nieobecności',min:-20,max:20,step:0.1},
+  {k:'b', sym:'b', desc:'wyraz wolny',min:-50,max:150,step:0.5}
+];
+const LRS=[0.0005,0.001,0.002,0.004,0.006,0.008,0.012,0.02,0.03];
+let uid=0;
+const S={models:[],data:[],train:new Set(),infer:[],slot:null,mode:'train',running:false,lrIdx:5,speed:60,msg:'',rowNo:0,inp:{h:6,a:2},snap:null};
+const mkModel=(name,w1,w2,b)=>({id:'m'+(++uid),name,w1,w2,b,init:{w1,w2,b},hist:[],steps:0});
+const mkRow=(h,a,y)=>({id:'d'+(++uid),no:++S.rowNo,h,a,y});
+S.models=[mkModel('Model A',5,0,30),mkModel('Model B',2,-2,50),mkModel('Model C',0,0,0)];
+[[1,8,23],[2,6,33],[3,7,39],[4,5,47],[2,1,51],[5,3,60],[6,4,66],[7,2,74],[8,1,87],[10,0,96]].forEach(r=>S.data.push(mkRow(...r)));
+
+const $=s=>document.querySelector(s);
+const cur=()=>S.models.find(m=>m.id===S.slot)||null;
+const pred=(m,h,a)=>m.w1*h+m.w2*a+m.b;
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const fmt=(v,d=2)=>{const x=Math.abs(v)<Math.pow(10,-d)/2?0:v;return x.toFixed(d).replace('-','−');};
+const par=v=>v<0?`(${fmt(v)})`:fmt(v);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const FONT='Archivo, "Segoe UI", system-ui, sans-serif';
+const sortData=()=>S.data.sort((a,b)=>a.y-b.y||a.no-b.no);
+
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2400);}
+function pulse(el){if(!el)return;el.classList.remove('pulse');void el.offsetWidth;el.classList.add('pulse');}
+
+/* ---------- Knob SVG ---------- */
+function polar(c,r,deg){const t=deg*Math.PI/180;return[c+r*Math.sin(t),c-r*Math.cos(t)];}
+function arcPath(c,r,a,b){if(Math.abs(b-a)<0.5)return'';const[x1,y1]=polar(c,r,a),[x2,y2]=polar(c,r,b);return`M${x1} ${y1} A${r} ${r} 0 ${Math.abs(b-a)>180?1:0} ${b>a?1:0} ${x2} ${y2}`;}
+function knobSVG(p,v,size){
+  const t=(clamp(v,p.min,p.max)-p.min)/(p.max-p.min), ang=-135+t*270;
+  const z=-135+clamp((0-p.min)/(p.max-p.min),0,1)*270;
+  const[px,py]=polar(50,26,ang),[z1x,z1y]=polar(50,45,z),[z2x,z2y]=polar(50,49,z);
+  const out=v<p.min||v>p.max;
+  return`<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
+<path d="${arcPath(50,40,-135,135)}" style="fill:none;stroke:var(--track);stroke-width:8;stroke-linecap:round"/>
+<path d="${arcPath(50,40,z,ang)}" style="fill:none;stroke:var(--accent);stroke-width:8;stroke-linecap:round"/>
+<line x1="${z1x}" y1="${z1y}" x2="${z2x}" y2="${z2y}" style="stroke:var(--muted);stroke-width:2.5"/>
+<circle cx="50" cy="50" r="29" style="fill:var(--knob);stroke:var(--line);stroke-width:2"/>
+<line x1="50" y1="50" x2="${px}" y2="${py}" style="stroke:var(--ink);stroke-width:5;stroke-linecap:round"/>
+<circle cx="50" cy="50" r="4.5" style="fill:var(--ink)"/>
+${out?`<text x="50" y="98" text-anchor="middle" style="font:700 11px ${FONT};fill:var(--orange)">poza skalą</text>`:''}</svg>`;
+}
+
+/* ---------- Charts ---------- */
+function prepCanvas(c){
+  const r=c.getBoundingClientRect(),dpr=window.devicePixelRatio||1,w=Math.max(20,r.width),h=Math.max(20,r.height);
+  const W=Math.round(w*dpr),H=Math.round(h*dpr);if(c.width!==W||c.height!==H){c.width=W;c.height=H;}
+  const ctx=c.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);return{ctx,w,h};
+}
+function starPath(ctx,x,y,R){const r=R*0.45;ctx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r:R;ctx.lineTo(x+rr*Math.cos(a),y+rr*Math.sin(a));}ctx.closePath();}
+function labelBox(ctx,text,x,y,C,align='left'){
+  ctx.font=`600 12px ${FONT}`;const w=ctx.measureText(text).width+8;const bx=align==='right'?x-w:x;
+  ctx.fillStyle=C.panel;ctx.globalAlpha=.9;ctx.fillRect(bx,y-9,w,18);ctx.globalAlpha=1;
+  ctx.fillStyle=C.ink;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(text,bx+4,y);
+}
+function colors(){return{ink:css('--ink'),muted:css('--muted'),line:css('--line'),grid:css('--grid'),acc:css('--accent'),or:css('--orange'),panel:css('--panel')};}
+
+const RAD=Math.PI/180, VIEW_DEF={az:40,el:26}, VIEW_MINI={az:40,el:26};
+S.view={...VIEW_DEF};S.hover=null;let lastPts=[];
+const NRM=(h,a,y)=>[h/12*2-1,a/10*2-1,y/110*2-1];
+const BOX=[1.3,0.8,0.85];
+function camera(view,w,h,full){
+  const ca=Math.cos(view.az*RAD),sa=Math.sin(view.az*RAD),ce=Math.cos(view.el*RAD),se=Math.sin(view.el*RAD);
+  const raw=(X,Y,Z)=>{X*=BOX[0];Y*=BOX[1];Z*=BOX[2];const x1=X*ca-Y*sa,y1=X*sa+Y*ca;return{x:x1,u:Z*ce+y1*se,d:y1*ce-Z*se};};
+  let umin=1e9,umax=-1e9;for(const X of[-1,1])for(const Y of[-1,1])for(const Z of[-1,1]){const r=raw(X,Y,Z);umin=Math.min(umin,r.u);umax=Math.max(umax,r.u);}
+  const hx=Math.hypot(BOX[0],BOX[1]);
+  const pl=full?78:6,pr=full?40:6,pt=full?34:5,pb=full?58:5;
+  const s=Math.min((w-pl-pr)/(2*hx),(h-pt-pb)/(umax-umin));
+  const cx=pl+(w-pl-pr)/2, cy=pt+(h-pt-pb)/2+(umax+umin)/2*s;
+  const P=(X,Y,Z)=>{const r=raw(X,Y,Z);return{x:cx+r.x*s,y:cy-r.u*s,d:r.d};};
+  return{P,D:(hh,aa,yy)=>P(...NRM(hh,aa,yy))};
+}
+function clipPoly(poly,lo,hi){
+  const at=(A,B,z)=>{const t=(z-A.z)/(B.z-A.z);return{h:A.h+t*(B.h-A.h),a:A.a+t*(B.a-A.a),z};};
+  const clip=(pts,inside,z)=>{const out=[];for(let i=0;i<pts.length;i++){const A=pts[i],B=pts[(i+1)%pts.length],ia=inside(A),ib=inside(B);if(ia)out.push(A);if(ia!==ib)out.push(at(A,B,z));}return out;};
+  let p=clip(poly,v=>v.z>=lo,lo);if(p.length)p=clip(p,v=>v.z<=hi,hi);return p;
+}
+function seg(ctx,A,B){ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();}
+function poly2(ctx,pts){ctx.beginPath();pts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.closePath();}
+function drawModelChart(c,m,full){
+  if(!c)return;const{ctx,w,h}=prepCanvas(c);const C=colors();
+  const{P,D}=camera(full?S.view:VIEW_MINI,w,h,full);
+  const xBack=P(1,0,0).d>P(-1,0,0).d?12:0, yBack=P(0,1,0).d>P(0,-1,0).d?10:0;
+  const xFront=12-xBack, yFront=10-yBack;
+  // floor & back walls
+  ctx.lineWidth=1;ctx.strokeStyle=C.grid;
+  for(let hh=0;hh<=12;hh+=2){seg(ctx,D(hh,0,0),D(hh,10,0));if(full)seg(ctx,D(hh,yBack,0),D(hh,yBack,110));}
+  for(let aa=0;aa<=10;aa+=2){seg(ctx,D(0,aa,0),D(12,aa,0));if(full)seg(ctx,D(xBack,aa,0),D(xBack,aa,110));}
+  for(let y=full?10:55;y<=110;y+=full?10:55){seg(ctx,D(xBack,0,y),D(xBack,10,y));seg(ctx,D(0,yBack,y),D(12,yBack,y));}
+  ctx.strokeStyle=C.line;ctx.lineWidth=1.2;
+  poly2(ctx,[D(0,0,0),D(12,0,0),D(12,10,0),D(0,10,0)]);ctx.stroke();
+  poly2(ctx,[D(xBack,0,0),D(xBack,10,0),D(xBack,10,110),D(xBack,0,110)]);ctx.stroke();
+  poly2(ctx,[D(0,yBack,0),D(12,yBack,0),D(12,yBack,110),D(0,yBack,110)]);ctx.stroke();
+  if(full){
+    const O=D(6,5,55);ctx.fillStyle=C.muted;
+    const axis=(A,B,ticks,lab,title)=>{
+      if(Math.hypot(A.x-B.x,A.y-B.y)<30)return;
+      const M={x:(A.x+B.x)/2,y:(A.y+B.y)/2};let dx=M.x-O.x,dy=M.y-O.y;const L=Math.hypot(dx,dy)||1;dx/=L;dy/=L;
+      ctx.font=`12px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=C.muted;
+      ticks.forEach(t=>{const p=lab(t);ctx.fillText(t,p.x+dx*17,p.y+dy*17);});
+      ctx.font=`600 12.5px ${FONT}`;ctx.fillStyle=C.ink;ctx.fillText(title,M.x+dx*40,M.y+dy*40);
+    };
+    axis(D(0,yFront,0),D(12,yFront,0),[0,2,4,6,8,10,12],t=>D(t,yFront,0),'Godziny nauki [h]');
+    axis(D(xFront,0,0),D(xFront,10,0),[0,2,4,6,8,10],t=>D(xFront,t,0),'Nieobecności');
+    const corners=[[0,0],[12,0],[0,10],[12,10]];let vc=corners[0];corners.forEach(k=>{if(D(k[0],k[1],0).x<D(vc[0],vc[1],0).x)vc=k;});
+    const vb=D(vc[0],vc[1],0),vt=D(vc[0],vc[1],110);
+    if(Math.hypot(vb.x-vt.x,vb.y-vt.y)>30){ctx.strokeStyle=C.line;seg(ctx,vb,vt);
+      ctx.font=`12px ${FONT}`;ctx.fillStyle=C.muted;ctx.textAlign='right';ctx.textBaseline='middle';
+      for(let y=0;y<=110;y+=20){const p=D(vc[0],vc[1],y);ctx.fillText(y,p.x-8,p.y);}
+      ctx.font=`600 12.5px ${FONT}`;ctx.fillStyle=C.ink;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillText('Wynik [pkt]',vt.x,vt.y-10);}
+  }
+  if(!m)return;
+  // model plane
+  const cells=[];
+  for(let i=0;i<12;i++)for(let j=0;j<10;j++){
+    const cp=clipPoly([[i,j],[i+1,j],[i+1,j+1],[i,j+1]].map(([hh,aa])=>({h:hh,a:aa,z:pred(m,hh,aa)})),0,110);
+    if(cp.length<3)continue;const pts=cp.map(v=>D(v.h,v.a,v.z));cells.push({pts,d:pts.reduce((s,p)=>s+p.d,0)/pts.length});}
+  cells.sort((a,b)=>b.d-a.d);
+  const drawPlane=()=>cells.forEach(cl=>{poly2(ctx,cl.pts);ctx.globalAlpha=full?.2:.3;ctx.fillStyle=C.acc;ctx.fill();
+    ctx.globalAlpha=full?.6:.75;ctx.strokeStyle=C.acc;ctx.lineWidth=1;ctx.stroke();ctx.globalAlpha=1;});
+  if(!full){drawPlane();return;}
+  const items=S.data.map(d=>{const yp=pred(m,d.h,d.a),ypc=clamp(yp,0,110);return{d,yp,P:D(d.h,d.a,d.y),Q:D(d.h,d.a,ypc),F:D(d.h,d.a,0),below:d.y<yp,inQ:yp>=0&&yp<=110};});
+  lastPts=items.map(o=>({kind:'d',o}));
+  items.forEach(o=>{ctx.fillStyle=C.muted;ctx.globalAlpha=.3;ctx.beginPath();ctx.ellipse(o.F.x,o.F.y,6,3,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;});
+  const drawPt=o=>{const tr=S.train.has(o.d.id),hv=S.hover===o.d.id;ctx.beginPath();ctx.arc(o.P.x,o.P.y,hv?10:8,0,Math.PI*2);
+    if(tr){ctx.fillStyle=C.or;ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle=C.panel;ctx.stroke();}
+    else{ctx.fillStyle=C.panel;ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=C.or;ctx.stroke();}
+    if(hv){ctx.lineWidth=2;ctx.strokeStyle=C.ink;ctx.beginPath();ctx.arc(o.P.x,o.P.y,13,0,Math.PI*2);ctx.stroke();}};
+  const byDepth=(a,b)=>b.P.d-a.P.d;
+  items.filter(o=>o.below).sort(byDepth).forEach(drawPt);
+  drawPlane();
+  items.forEach(o=>{ctx.setLineDash([3,3]);ctx.strokeStyle=C.muted;ctx.lineWidth=1.5;seg(ctx,o.P,o.Q);ctx.setLineDash([]);
+    if(o.inQ){ctx.fillStyle=C.acc;ctx.fillRect(o.Q.x-4,o.Q.y-4,8,8);}});
+  items.filter(o=>!o.below).sort(byDepth).forEach(drawPt);
+  S.infer.forEach(q=>{const yp=pred(m,q.h,q.a),Q=D(q.h,q.a,clamp(yp,0,110)),F=D(q.h,q.a,0);
+    ctx.setLineDash([2,4]);ctx.strokeStyle=C.ink;ctx.lineWidth=1.2;seg(ctx,Q,F);ctx.setLineDash([]);
+    starPath(ctx,Q.x,Q.y,12);ctx.fillStyle=C.ink;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle=C.panel;ctx.stroke();
+    labelBox(ctx,`${q.label}: ${fmt(yp,1)} pkt`,Q.x+14,Q.y-12,C);});
+  const hv=items.find(o=>o.d.id===S.hover);
+  if(hv){const d=hv.d;labelBox(ctx,`U${d.no}: ${d.h} h, ${d.a} nieob., y = ${d.y}, ŷ = ${fmt(hv.yp,1)}`,hv.P.x+16,hv.P.y-16,C);}
+}
+function drawMain(){const m=cur();if(m)drawModelChart($('#mainChart'),m,true);}
+let tw=null;
+function tweenView(to){
+  cancelAnimationFrame(tw);const from={...S.view},dAz=((to.az-from.az)%360+540)%360-180,t0=performance.now();
+  const dur=matchMedia('(prefers-reduced-motion: reduce)').matches?0:500;
+  const f=now=>{const t=dur?Math.min(1,(now-t0)/dur):1,e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    S.view.az=from.az+dAz*e;S.view.el=from.el+(to.el-from.el)*e;drawMain();if(t<1)tw=requestAnimationFrame(f);};
+  tw=requestAnimationFrame(f);
+}
+function bindChart3D(){
+  const cv=$('#mainChart');if(!cv)return;
+  cv.addEventListener('pointerdown',e=>{e.preventDefault();cancelAnimationFrame(tw);cv.setPointerCapture(e.pointerId);
+    const x0=e.clientX,y0=e.clientY,v0={...S.view};S.hover=null;cv.classList.add('rot');
+    const mv=ev=>{S.view.az=v0.az-(ev.clientX-x0)*0.45;S.view.el=clamp(v0.el+(ev.clientY-y0)*0.35,0,89);drawMain();};
+    const up=()=>{cv.removeEventListener('pointermove',mv);cv.removeEventListener('pointerup',up);cv.removeEventListener('pointercancel',up);cv.classList.remove('rot');};
+    cv.addEventListener('pointermove',mv);cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);});
+  cv.addEventListener('pointermove',e=>{if(e.buttons)return;const r=cv.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+    let best=null,bd=14;lastPts.forEach(p=>{const dd=Math.hypot(p.o.P.x-x,p.o.P.y-y);if(dd<bd){bd=dd;best=p.o.d.id;}});
+    if(best!==S.hover){S.hover=best;drawMain();}});
+  cv.addEventListener('pointerleave',()=>{if(S.hover){S.hover=null;drawMain();}});
+  cv.addEventListener('dblclick',()=>tweenView(VIEW_DEF));
+  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>tweenView(VIEWS[b.dataset.view]));
+}
+const VIEWS={d3:VIEW_DEF,h:{az:0,el:0},a:{az:-90,el:0},top:{az:0,el:89}};
+function drawLoss(){
+  const c=$('#lossChart');if(!c)return;const m=cur();const{ctx,w,h}=prepCanvas(c);const C=colors();
+  if(!m||m.hist.length<2){ctx.fillStyle=C.muted;ctx.font=`13px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Wykres błędu MSE pojawi się po krokach uczenia',w/2,h/2);return;}
+  const H=m.hist.map(v=>Math.log10(Math.max(v,1e-4)));let lo=Math.min(...H),hi=Math.max(...H);
+  lo=Math.floor(lo);hi=Math.ceil(hi);if(hi-lo<1)hi=lo+1;
+  const P={l:52,r:12,t:12,b:24},sx=i=>P.l+i/(H.length-1)*(w-P.l-P.r),sy=v=>h-P.b-(v-lo)/(hi-lo)*(h-P.t-P.b);
+  ctx.font=`11px ${FONT}`;ctx.fillStyle=C.muted;ctx.textAlign='right';ctx.textBaseline='middle';
+  for(let k=lo;k<=hi;k++){ctx.strokeStyle=C.grid;ctx.beginPath();ctx.moveTo(P.l,sy(k));ctx.lineTo(w-P.r,sy(k));ctx.stroke();
+    ctx.fillText(k>=0?Math.pow(10,k).toLocaleString('pl-PL'):Math.pow(10,k).toString().replace('.',','),P.l-6,sy(k));}
+  ctx.textAlign='center';ctx.textBaseline='bottom';
+  ctx.fillText(`MSE (skala log.), ostatnie ${H.length} kroków z ${m.steps}`,(P.l+w-P.r)/2,h-2);
+  ctx.strokeStyle=C.or;ctx.lineWidth=2.2;ctx.beginPath();H.forEach((v,i)=>ctx.lineTo(sx(i),sy(v)));ctx.stroke();
+}
+
+/* ---------- Drag & drop ---------- */
+let D=null;
+function beginDrag(e,kind,payload,ghostFn,src){
+  if(e.button!==undefined&&e.button!==0)return;
+  D={kind,payload,ghostFn,src,sx:e.clientX,sy:e.clientY,active:false,ghost:null,over:null};
+  window.addEventListener('pointermove',dragMove,{passive:false});
+  window.addEventListener('pointerup',dragEnd);window.addEventListener('pointercancel',dragCancel);
+}
+const accepts=(el,kind)=>(el.dataset.drop||'').split(' ').includes(kind);
+function targetAt(x,y){const el=document.elementFromPoint(x,y);const t=el&&el.closest('[data-drop]');return t&&accepts(t,D.kind)?t:null;}
+function slotHint(kind){
+  if(kind==='model')return cur()?'Upuść, aby wymienić model':'Upuść, aby załadować model';
+  if(kind==='row')return S.mode==='train'?'Upuść, aby dodać do zbioru uczącego':'Upuść, aby przewidzieć wynik';
+  return'Upuść, aby przewidzieć wynik';
+}
+function dragMove(e){
+  if(!D)return;
+  if(!D.active){
+    if(Math.hypot(e.clientX-D.sx,e.clientY-D.sy)<6)return;
+    D.active=true;const g=D.ghostFn();D.ghost=g.el;g.el.classList.add('ghost');document.body.append(g.el);g.after&&g.after(g.el);
+    D.src&&D.src.classList.add('dragsrc');document.body.classList.add('is-dragging');
+    document.querySelectorAll('[data-drop]').forEach(t=>{if(accepts(t,D.kind)&&!(D.kind==='model'&&t.id==='library'&&D.payload!==S.slot)){t.classList.add('can-drop');if(t.id==='slot')t.dataset.hint=slotHint(D.kind);}});
+  }
+  e.preventDefault();
+  D.ghost.style.transform=`translate(${e.clientX-36}px,${e.clientY-20}px) rotate(-2deg)`;
+  const t=targetAt(e.clientX,e.clientY);
+  if(t!==D.over){D.over&&D.over.classList.remove('over');D.over=t;t&&t.classList.add('over');}
+}
+function cleanupDrag(){
+  window.removeEventListener('pointermove',dragMove);window.removeEventListener('pointerup',dragEnd);window.removeEventListener('pointercancel',dragCancel);
+  if(D){D.ghost&&D.ghost.remove();D.src&&D.src.classList.remove('dragsrc');}
+  document.body.classList.remove('is-dragging');document.querySelectorAll('.can-drop,.over').forEach(t=>t.classList.remove('can-drop','over'));D=null;
+}
+function dragEnd(e){if(!D)return;const d=D;const t=d.active?targetAt(e.clientX,e.clientY):null;cleanupDrag();if(t)handleDrop(t.id,d.kind,d.payload);}
+function dragCancel(){cleanupDrag();}
+
+function handleDrop(t,kind,p){
+  if(kind==='model'){
+    const m=S.models.find(x=>x.id===p);
+    if(t==='slot'){if(S.slot===p)return;stopTrain();const prev=cur();S.slot=p;S.msg='';renderAll();pulse($('#slot .mcard'));
+      toast(prev?`Wymieniono: ${prev.name} → ${m.name}`:`Załadowano: ${m.name}`);}
+    else if(t==='library'&&S.slot===p){stopTrain();S.slot=null;renderAll();toast(`${m.name} wrócił do biblioteki`);}
+    return;
+  }
+  if(kind==='row'){
+    const d=S.data.find(x=>x.id===p);if(!d)return;
+    if(t==='trainset'){addTrain(d);return;}
+    if(!cur()){toast('Najpierw przeciągnij model z biblioteki do programu.');return;}
+    if(S.mode==='train')addTrain(d);else addInfer(d.h,d.a,`U${d.no}`);
+    return;
+  }
+  if(kind==='input'){if(!cur()){toast('Najpierw przeciągnij model z biblioteki do programu.');return;}addInfer(S.inp.h,S.inp.a);}
+}
+function addTrain(d){
+  if(S.train.has(d.id)){toast(`U${d.no} jest już w zbiorze uczącym`);return;}
+  S.train.add(d.id);renderTable();renderTrainSet();updateAll();pulse($('#slot .mcard'));toast(`Dodano U${d.no} do zbioru uczącego`);
+}
+let inferNo=0;
+function addInfer(h,a,label){
+  S.infer.push({id:'q'+(++uid),h,a,label:label||`★${++inferNo}`});
+  renderProcess();updateAll();pulse($('#slot .mcard'));
+}
+
+/* ---------- Library ---------- */
+function libCardEl(m){
+  const el=document.createElement('div');el.className='libcard';el.dataset.id=m.id;
+  el.innerHTML=`<div class="lc-head"><span class="grip" aria-hidden="true">⠿</span><strong>${m.name}</strong></div>
+<div class="lc-knobs">${PARAMS.map(p=>`<div class="lc-k">${knobSVG(p,m[p.k],42)}<span>${p.sym} = ${fmt(m[p.k])}</span></div>`).join('')}</div>
+<canvas class="mini" aria-label="Wykres modelu ${m.name}"></canvas>`;
+  return el;
+}
+const modelGhost=m=>()=>{const el=libCardEl(m);return{el,after:g=>drawModelChart(g.querySelector('canvas'),m,false)};};
+function renderLibrary(){
+  const list=$('#libList');list.innerHTML='';
+  const ms=S.models.filter(m=>m.id!==S.slot);
+  if(!ms.length)list.innerHTML='<div class="libempty">Biblioteka jest pusta. Model w programie możesz odłożyć tutaj.</div>';
+  ms.forEach(m=>{const el=libCardEl(m);list.append(el);drawModelChart(el.querySelector('canvas'),m,false);
+    el.addEventListener('pointerdown',e=>beginDrag(e,'model',m.id,modelGhost(m),el));});
+}
+
+/* ---------- Slot (program) ---------- */
+function legendSVG(kind){
+  if(kind==='plane')return`<svg width="26" height="16"><polygon points="1,13 9,3 25,3 17,13" style="fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5"/><line x1="5" y1="8" x2="21" y2="8" style="stroke:var(--accent);stroke-width:1"/><line x1="13" y1="3" x2="9" y2="13" style="stroke:var(--accent);stroke-width:1"/></svg>`;
+  if(kind==='pt')return`<svg width="16" height="16"><circle cx="8" cy="8" r="6.5" style="fill:var(--orange)"/></svg>`;
+  if(kind==='pt0')return`<svg width="16" height="16"><circle cx="8" cy="8" r="6" style="fill:var(--panel);stroke:var(--orange);stroke-width:2"/></svg>`;
+  if(kind==='sq')return`<svg width="12" height="12"><rect x="1.5" y="1.5" width="9" height="9" style="fill:var(--accent)"/></svg>`;
+  if(kind==='res')return`<svg width="12" height="18"><line x1="6" y1="1" x2="6" y2="17" style="stroke:var(--muted);stroke-width:1.5;stroke-dasharray:3 3"/></svg>`;
+  return`<svg width="16" height="16"><polygon points="8,1 10,6 15.5,6 11,9.5 12.5,15 8,11.8 3.5,15 5,9.5 0.5,6 6,6" style="fill:var(--ink)"/></svg>`;
+}
+function renderSlot(){
+  const slot=$('#slot'),m=cur();slot.classList.toggle('empty',!m);
+  if(!m){slot.innerHTML=`<div class="slot-empty"><p><strong>Program jest pusty</strong></p><p>Przeciągnij tutaj model z biblioteki po lewej.</p></div>`;return;}
+  slot.innerHTML=`<div class="mcard">
+  <div class="mhead" title="Przeciągnij, aby wymienić lub odłożyć model"><span class="grip" aria-hidden="true">⠿</span><strong>${m.name}</strong>
+    <span class="sp"></span><button class="btn small" id="btnReset">Przywróć wartości startowe</button><button class="btn small" id="btnEject">Odłóż do biblioteki</button></div>
+  <div class="formula" id="formula"></div>
+  <div class="knobs">${PARAMS.map(p=>`<div class="knob" data-k="${p.k}">
+    <div class="klabel">${p.sym}<small>${p.desc}</small></div>
+    <div class="kdial" tabindex="0" role="slider" aria-label="${p.sym}, ${p.desc}" aria-valuemin="${p.min}" aria-valuemax="${p.max}"></div>
+    <input class="kin" type="number" step="${p.step}" min="${p.min}" max="${p.max}" aria-label="Wartość ${p.sym}">
+  </div>`).join('')}</div>
+  <div class="views"><button class="btn small" data-view="d3">Widok 3D</button><button class="btn small" data-view="h">Z boku: godziny</button><button class="btn small" data-view="a">Z boku: nieobecności</button><button class="btn small" data-view="top">Z góry</button><span class="hint">Przeciągnij wykres, aby go obrócić</span></div>
+  <div class="chartwrap"><canvas id="mainChart" aria-label="Wykres 3D: wynik względem godzin nauki i nieobecności"></canvas></div>
+  <div class="legend">
+    <span>${legendSVG('plane')}płaszczyzna modelu ŷ(godziny, nieobecności)</span>
+    <span>${legendSVG('pt')}uczeń w zbiorze uczącym</span><span>${legendSVG('pt0')}uczeń poza zbiorem</span>
+    <span>${legendSVG('sq')}predykcja ŷ</span><span>${legendSVG('res')}błąd</span><span>${legendSVG('star')}dane z inferencji</span>
+  </div>
+</div>`;
+  const card=slot.querySelector('.mcard');
+  slot.querySelector('.mhead').addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;beginDrag(e,'model',m.id,modelGhost(m),card);});
+  bindChart3D();
+  $('#btnReset').onclick=()=>{stopTrain();Object.assign(m,m.init);m.hist=[];m.steps=0;S.msg='';updateAll();renderProcess();};
+  $('#btnEject').onclick=()=>handleDrop('library','model',m.id);
+  slot.querySelectorAll('.knob').forEach(kEl=>{
+    const p=PARAMS.find(x=>x.k===kEl.dataset.k),dial=kEl.querySelector('.kdial'),inp=kEl.querySelector('input');
+    dial.addEventListener('pointerdown',e=>{
+      e.preventDefault();dial.focus();dial.setPointerCapture(e.pointerId);const y0=e.clientY,v0=m[p.k];dial.classList.add('active');
+      const mv=ev=>setParam(m,p,v0+(y0-ev.clientY)*(p.max-p.min)/260*(ev.shiftKey?0.1:1));
+      const up=()=>{dial.removeEventListener('pointermove',mv);dial.removeEventListener('pointerup',up);dial.removeEventListener('pointercancel',up);dial.classList.remove('active');};
+      dial.addEventListener('pointermove',mv);dial.addEventListener('pointerup',up);dial.addEventListener('pointercancel',up);
+    });
+    dial.addEventListener('wheel',e=>{e.preventDefault();setParam(m,p,m[p.k]+(e.deltaY<0?1:-1)*p.step*(e.shiftKey?1:5));},{passive:false});
+    dial.addEventListener('keydown',e=>{const d={ArrowUp:1,ArrowRight:1,ArrowDown:-1,ArrowLeft:-1}[e.key];if(d){e.preventDefault();setParam(m,p,m[p.k]+d*p.step*(e.shiftKey?10:1));}});
+    inp.addEventListener('input',()=>{const v=parseFloat(String(inp.value).replace(',','.'));if(isFinite(v))setParam(m,p,v);});
+  });
+}
+function setParam(m,p,v){m[p.k]=Math.round(clamp(v,p.min,p.max)*100)/100;updateAll();}
+function updateModelView(){
+  const m=cur();if(!m)return;const slot=$('#slot');
+  PARAMS.forEach(p=>{const k=slot.querySelector(`.knob[data-k="${p.k}"]`);if(!k)return;
+    const dial=k.querySelector('.kdial');dial.innerHTML=knobSVG(p,m[p.k],104);dial.setAttribute('aria-valuenow',m[p.k]);
+    const inp=k.querySelector('input');if(document.activeElement!==inp)inp.value=+m[p.k].toFixed(2);});
+  $('#formula').innerHTML=`ŷ = <b>${par(m.w1)}</b> · godziny + <b>${par(m.w2)}</b> · nieobecności + <b>${par(m.b)}</b>`;
+  drawModelChart($('#mainChart'),m,true);
+}
+
+/* ---------- Training ---------- */
+function metrics(m,rows){
+  if(!m||!rows.length)return null;const mean=rows.reduce((s,d)=>s+d.y,0)/rows.length;let se=0,st=0;
+  rows.forEach(d=>{const e=pred(m,d.h,d.a)-d.y;se+=e*e;st+=(d.y-mean)**2;});
+  return{mse:se/rows.length,rmse:Math.sqrt(se/rows.length),r2:st>0?1-se/st:NaN};
+}
+function gdStep(m){
+  const rows=S.data.filter(d=>S.train.has(d.id)),n=rows.length;if(!n)return'empty';
+  let g1=0,g2=0,gb=0,se=0;
+  rows.forEach(d=>{const e=pred(m,d.h,d.a)-d.y;g1+=e*d.h;g2+=e*d.a;gb+=e;se+=e*e;});
+  const k=2/n,lr=LRS[S.lrIdx];
+  m.w1-=lr*k*g1;m.w2-=lr*k*g2;m.b-=lr*k*gb;
+  m.steps++;m.hist.push(se/n);if(m.hist.length>800)m.hist.shift();
+  if(![m.w1,m.w2,m.b].every(v=>isFinite(v)&&Math.abs(v)<1e4))return'diverge';
+  return Math.hypot(k*g1,k*g2,k*gb)<2e-4?'converged':'ok';
+}
+function runSteps(m,count){
+  for(let i=0;i<count;i++){const r=gdStep(m);
+    if(r==='empty'){stopTrain();return;}
+    if(r==='diverge'){Object.assign(m,S.snap);stopTrain();S.msg=`Model się rozbiegł: przy η = ${LRS[S.lrIdx]} każdy krok przestrzeliwał minimum i błąd rósł. Przywrócono parametry sprzed uczenia — zmniejsz η.`;return;}
+    if(r==='converged'){stopTrain();S.msg='Uczenie zakończone: gradient jest prawie zerowy, model osiągnął minimum błędu na zbiorze uczącym.';return;}
+  }
+}
+function canTrain(){
+  if(!cur()){toast('Najpierw przeciągnij model z biblioteki do programu.');return false;}
+  if(!S.train.size){toast('Zbiór uczący jest pusty — przeciągnij wiersze z tabeli na model.');return false;}
+  return true;
+}
+function startTrain(){if(!canTrain())return;const m=cur();S.snap={w1:m.w1,w2:m.w2,b:m.b};S.msg='';S.running=true;updateRunBtn();requestAnimationFrame(loop);}
+function stopTrain(){S.running=false;updateRunBtn();}
+function loop(){if(!S.running)return;const m=cur();if(!m){stopTrain();return;}runSteps(m,S.speed);updateAll();if(S.running)requestAnimationFrame(loop);}
+function updateRunBtn(){const b=$('#btnRun');if(b){b.textContent=S.running?'⏸ Zatrzymaj':'▶ Ucz';}}
+
+/* ---------- Process panel ---------- */
+function renderProcess(){
+  const el=$('#proc');
+  if(S.mode==='train'){
+    el.innerHTML=`<h2>Proces: uczenie</h2>
+<div id="trainset" data-drop="row"></div>
+<div class="row"><button class="btn small" id="btnAll">Wrzuć wszystkie dane</button><button class="btn small" id="btnClear">Wyczyść zbiór uczący</button></div>
+<div class="row ctrl">
+  <button class="btn" id="btnStep">Jeden krok</button><button class="btn primary" id="btnRun">▶ Ucz</button>
+  <label>Współczynnik uczenia η<input type="range" id="lr" min="0" max="${LRS.length-1}" step="1" value="${S.lrIdx}"><b id="lrv"></b></label>
+  <label>Kroki na klatkę animacji<input type="range" id="spd" min="1" max="200" step="1" value="${S.speed}"><b id="spdv"></b></label>
+</div>
+<div class="stats" id="stats"></div>
+<canvas id="lossChart"></canvas>
+<p class="msg" id="trainMsg"></p>`;
+    renderTrainSet();
+    $('#btnAll').onclick=()=>{S.data.forEach(d=>S.train.add(d.id));renderTable();renderTrainSet();updateAll();toast('Wszystkie dane są w zbiorze uczącym');};
+    $('#btnClear').onclick=()=>{stopTrain();S.train.clear();renderTable();renderTrainSet();updateAll();};
+    $('#btnStep').onclick=()=>{if(!canTrain())return;stopTrain();const m=cur();S.snap={w1:m.w1,w2:m.w2,b:m.b};S.msg='';runSteps(m,1);updateAll();};
+    $('#btnRun').onclick=()=>S.running?stopTrain():startTrain();
+    const lr=$('#lr'),spd=$('#spd');
+    const sync=()=>{$('#lrv').textContent=String(LRS[S.lrIdx]).replace('.',',');$('#spdv').textContent=S.speed;};
+    lr.oninput=()=>{S.lrIdx=+lr.value;sync();};spd.oninput=()=>{S.speed=+spd.value;sync();};sync();updateRunBtn();
+  }else{
+    el.innerHTML=`<h2>Proces: inferencja</h2>
+<div class="result" id="inferResult"></div>
+<ul id="inferList"></ul>
+<div class="row" style="margin-top:10px"><button class="btn small" id="btnClearInf">Wyczyść predykcje</button></div>`;
+    $('#btnClearInf').onclick=()=>{S.infer=[];inferNo=0;renderProcess();updateAll();};
+    $('#inferList').addEventListener('click',e=>{const b=e.target.closest('button[data-q]');if(!b)return;S.infer=S.infer.filter(q=>q.id!==b.dataset.q);renderProcess();updateAll();});
+  }
+  updateProcessView();
+}
+function renderTrainSet(){
+  const ts=$('#trainset');if(!ts)return;
+  const rows=S.data.filter(d=>S.train.has(d.id));
+  ts.innerHTML=rows.length?rows.map(d=>`<span class="chip">U${d.no}: ${d.h} h, ${d.a} nieob., ${d.y} pkt<button data-rm="${d.id}" aria-label="Usuń U${d.no} ze zbioru">✕</button></span>`).join('')
+    :'<span class="placeholder">Zbiór uczący jest pusty. Upuść tu wiersze z tabeli albo upuść je na model.</span>';
+  ts.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{S.train.delete(b.dataset.rm);renderTable();renderTrainSet();updateAll();});
+}
+function updateProcessView(){
+  const m=cur();
+  if(S.mode==='train'){
+    const st=$('#stats');if(!st)return;
+    const tr=metrics(m,S.data.filter(d=>S.train.has(d.id))),all=metrics(m,S.data);
+    const v=(x,d=2)=>x==null||!isFinite(x)?'–':fmt(x,d);
+    st.innerHTML=`<div class="stat"><small>Kroki uczenia</small><b>${m?m.steps:'–'}</b></div>
+<div class="stat"><small>MSE (zbiór uczący)</small><b>${tr?v(tr.mse,1):'–'}</b></div>
+<div class="stat"><small>RMSE (uczący) [pkt]</small><b>${tr?v(tr.rmse,2):'–'}</b></div>
+<div class="stat"><small>R² (uczący)</small><b>${tr?v(tr.r2,3):'–'}</b></div>
+<div class="stat"><small>MSE (wszystkie dane)</small><b>${all?v(all.mse,1):'–'}</b></div>`;
+    $('#trainMsg').textContent=S.msg;drawLoss();
+  }else{
+    const r=$('#inferResult'),list=$('#inferList');if(!r)return;
+    const last=S.infer[S.infer.length-1];
+    if(!m)r.innerHTML='<span class="calc">Załaduj model do programu, aby przewidywać.</span>';
+    else if(!last)r.innerHTML='<span class="calc">Brak predykcji. Przeciągnij kartę „Nowy uczeń” na model.</span>';
+    else{const y=pred(m,last.h,last.a);
+      r.innerHTML=`<div><div class="calc">${last.label}: ${last.h} h nauki, ${last.a} nieob.</div><div class="bignum">${fmt(y,1)} <small>pkt</small></div></div>
+<div class="calc">${par(m.w1)}·${last.h} + ${par(m.w2)}·${last.a} + ${par(m.b)} = ${fmt(y,2)}${y<0||y>100?'<br>Uwaga: wynik poza skalą 0–100 — model liniowy nie zna granic skali.':''}</div>`;}
+    list.innerHTML=S.infer.map(q=>`<li><b>${q.label}</b><span>${q.h} h, ${q.a} nieob.</span><span class="sp"></span><b>${m?fmt(pred(m,q.h,q.a),1)+' pkt':'–'}</b><button data-q="${q.id}" aria-label="Usuń">✕</button></li>`).join('');
+  }
+}
+
+/* ---------- Inference side card ---------- */
+function renderSide(){
+  const el=$('#inferSide');
+  if(S.mode!=='infer'){el.innerHTML='';return;}
+  el.innerHTML=`<div class="incard" id="inCard">
+  <div class="ic-head" title="Przeciągnij na model"><span class="grip" aria-hidden="true">⠿</span><strong>Nowy uczeń</strong><span class="muted">przeciągnij na model</span></div>
+  <label>Godziny nauki <output id="ihv"></output><input type="range" id="ih" min="0" max="12" step="0.5" value="${S.inp.h}"></label>
+  <label>Nieobecności <output id="iav"></output><input type="range" id="ia" min="0" max="10" step="1" value="${S.inp.a}"></label>
+  <button class="btn primary" id="btnPredict" style="margin-top:6px">Przewiduj</button>
+</div>`;
+  const sync=()=>{$('#ihv').textContent=String(S.inp.h).replace('.',',')+' h';$('#iav').textContent=S.inp.a;};
+  $('#ih').oninput=e=>{S.inp.h=+e.target.value;sync();};$('#ia').oninput=e=>{S.inp.a=+e.target.value;sync();};sync();
+  $('#btnPredict').onclick=()=>handleDrop('slot','input');
+  const card=$('#inCard');
+  card.querySelector('.ic-head').addEventListener('pointerdown',e=>beginDrag(e,'input',null,()=>{const g=document.createElement('div');g.className='mini-ghost';g.textContent=`★ Nowy uczeń: ${S.inp.h} h nauki, ${S.inp.a} nieob.`;return{el:g};},card));
+}
+
+/* ---------- Table ---------- */
+function renderTable(){
+  const tb=$('#tbody');tb.innerHTML='';
+  S.data.forEach(d=>{const inT=S.train.has(d.id);const tr=document.createElement('tr');tr.dataset.id=d.id;if(inT)tr.className='in-train';
+    tr.innerHTML=`<td class="grip" title="Przeciągnij na model">⠿</td>
+<td class="who">U${d.no}${inT?'<span class="badge">● uczący</span>':''}</td>
+<td><input type="number" data-f="h" value="${d.h}" min="0" max="24" step="0.5" aria-label="Godziny nauki U${d.no}"></td>
+<td><input type="number" data-f="a" value="${d.a}" min="0" max="30" step="1" aria-label="Nieobecności U${d.no}"></td>
+<td><input type="number" data-f="y" value="${d.y}" min="0" max="100" step="1" aria-label="Wynik U${d.no}"></td>
+<td class="pred">–</td><td class="err">–</td>
+<td class="acts"><button class="mini" data-act="go">${S.mode==='train'?(inT?'− usuń':'+ ucz'):'przewiduj'}</button><button class="mini x" data-act="del" aria-label="Usuń wiersz U${d.no}">✕</button></td>`;
+    tb.append(tr);});
+  updateTablePreds();
+}
+function updateTablePreds(){
+  const m=cur();
+  document.querySelectorAll('#tbody tr').forEach(tr=>{const d=S.data.find(x=>x.id===tr.dataset.id);if(!d)return;
+    const pc=tr.querySelector('.pred'),ec=tr.querySelector('.err');
+    if(!m){pc.textContent='–';ec.textContent='–';ec.style.setProperty('--e','0%');return;}
+    const y=pred(m,d.h,d.a),e=y-d.y;pc.textContent=fmt(y,1);ec.textContent=(e>0?'+':'')+fmt(e,1);
+    ec.style.setProperty('--e',Math.min(100,Math.abs(e)/50*100)*0.8+'%');});
+}
+const tbody=$('#tbody');
+tbody.addEventListener('change',e=>{
+  const inp=e.target.closest('input[data-f]');if(!inp)return;const d=S.data.find(x=>x.id===inp.closest('tr').dataset.id);
+  const v=parseFloat(String(inp.value).replace(',','.'));if(!isFinite(v)){inp.value=d[inp.dataset.f];return;}
+  d[inp.dataset.f]=v;sortData();renderTable();renderTrainSet();updateAll();
+});
+tbody.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-act]');if(!b)return;const d=S.data.find(x=>x.id===b.closest('tr').dataset.id);
+  if(b.dataset.act==='del'){S.data=S.data.filter(x=>x!==d);S.train.delete(d.id);renderTable();renderTrainSet();updateAll();return;}
+  if(S.mode==='train'){if(S.train.has(d.id)){S.train.delete(d.id);renderTable();renderTrainSet();updateAll();}else handleDrop('trainset','row',d.id);}
+  else handleDrop('slot','row',d.id);
+});
+tbody.addEventListener('pointerdown',e=>{
+  if(e.target.closest('input,button'))return;const tr=e.target.closest('tr');if(!tr)return;
+  if(e.pointerType==='touch'&&!e.target.closest('.grip,.who'))return;
+  const d=S.data.find(x=>x.id===tr.dataset.id);
+  beginDrag(e,'row',d.id,()=>{const g=document.createElement('div');g.className='mini-ghost';g.textContent=`U${d.no}: ${d.h} h nauki, ${d.a} nieob., ${d.y} pkt`;return{el:g};},tr);
+});
+$('#btnAddRow').onclick=()=>{const d=mkRow(5,2,62);S.data.push(d);sortData();renderTable();updateAll();
+  const tr=document.querySelector(`#tbody tr[data-id="${d.id}"]`);tr&&tr.querySelector('input').focus();};
+
+/* ---------- Global ---------- */
+function updateAll(){updateModelView();updateTablePreds();updateProcessView();}
+function renderAll(){renderLibrary();renderSlot();renderProcess();renderSide();renderTable();updateAll();}
+function setMode(md){S.mode=md;stopTrain();$('#modeTrain').setAttribute('aria-pressed',md==='train');$('#modeInfer').setAttribute('aria-pressed',md==='infer');renderProcess();renderSide();renderTable();updateAll();}
+$('#modeTrain').onclick=()=>setMode('train');$('#modeInfer').onclick=()=>setMode('infer');
+$('#btnNew').onclick=()=>{const L='ABCDEFGHIJKLMNOPQRSTUVWXYZ'[S.models.length%26];const r=(a,b,s)=>Math.round((a+Math.random()*(b-a))/s)*s;
+  S.models.push(mkModel(`Model ${L}`,r(-4,10,0.5),r(-5,5,0.5),r(0,80,5)));renderLibrary();};
+let rT;const redraw=()=>{clearTimeout(rT);rT=setTimeout(()=>{renderLibrary();updateAll();},80);};
+window.addEventListener('resize',redraw);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redraw);
+if(document.fonts)document.fonts.ready.then(redraw);
+/* Desktop: proces w prawej kolumnie, dane pod modelem */
+const wideMQ=matchMedia('(min-width:1201px)');
+function placePanels(){
+  const proc=$('#proc'),data=$('#dataPanel');
+  if(wideMQ.matches){$('#program').append(data);$('#side').append(proc);}
+  else{$('#program').append(proc);$('#side').append(data);}
+  updateAll();
+}
+wideMQ.addEventListener('change',placePanels);
+renderAll();
+placePanels();
+</script>
+</body>
+</html>
