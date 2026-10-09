@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Symulator PCA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+[hidden]{display:none!important}
+
+/* Układ: biblioteka | scena 3D | panel sterowania + wyniki. Paleta Okabe–Ito (bezpieczna dla daltonistów) + kształty znaczników. */
+:root{
+  --bg:#E9EDF1; --panel:#FAFBFC; --stage:#F5F7F9; --line:#D3D9E0; --grid:#DEE3E9;
+  --ink:#17212B; --muted:#5A6876;
+  --accent:#9E3B83; --accent-soft:#F3E3EE;
+  --c1:#0072B2; --c2:#D48600; --c3:#3B4753;
+  --pos:#0072B2; --neg:#D48600;
+  --font-ui:"Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-num:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1116; --panel:#131A21; --stage:#0F151B; --line:#25303B; --grid:#1B242D;
+    --ink:#E3E8ED; --muted:#91A0AE;
+    --accent:#E58CC9; --accent-soft:#3A2333;
+    --c1:#56B4E9; --c2:#F0B13C; --c3:#C4CDD6;
+    --pos:#56B4E9; --neg:#F0B13C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1116; --panel:#131A21; --stage:#0F151B; --line:#25303B; --grid:#1B242D;
+  --ink:#E3E8ED; --muted:#91A0AE;
+  --accent:#E58CC9; --accent-soft:#3A2333;
+  --c1:#56B4E9; --c2:#F0B13C; --c3:#C4CDD6;
+  --pos:#56B4E9; --neg:#F0B13C;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;overflow:hidden}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h3{margin:0;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:232px minmax(0,1fr) 340px;gap:12px;height:100%;padding-block:12px;padding-inline:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r)}
+
+/* ---------- Biblioteka ---------- */
+dataset-library{display:flex;flex-direction:column;gap:10px;min-height:0;padding:14px 12px;overflow:auto}
+.lib-list{display:flex;flex-direction:column;gap:10px}
+.ds-card{position:relative;display:flex;flex-direction:column;gap:6px;padding:8px 8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--stage);cursor:grab;touch-action:none;user-select:none;transition:border-color .15s, transform .15s}
+.ds-card:hover{border-color:var(--muted)}
+.ds-card.lifting{opacity:.45;transform:scale(.97)}
+.ds-card[aria-current="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.ds-card canvas{width:100%;height:96px;display:block;border-radius:5px}
+.ds-name{font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.ds-badge{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 6px}
+.ds-meta{font-size:12px;color:var(--muted)}
+.ds-feat{font-family:var(--font-num);font-size:11px;color:var(--muted);line-height:1.35}
+
+.ghost{position:fixed;left:0;top:0;z-index:1000;pointer-events:none;width:260px;padding:10px;background:var(--panel);border:1px solid var(--accent);border-radius:10px;box-shadow:0 18px 40px rgba(10,20,30,.28);transform-origin:20px 20px}
+.ghost canvas{width:100%;height:150px;display:block;border-radius:6px;background:var(--stage)}
+.ghost .g-name{font-weight:600;margin:8px 0 4px}
+.ghost table{width:100%;border-collapse:collapse;font-family:var(--font-num);font-size:10.5px;font-variant-numeric:tabular-nums}
+.ghost th{font-family:var(--font-ui);font-weight:600;color:var(--muted);text-align:right;padding:2px 3px;font-size:10px}
+.ghost td{text-align:right;padding:2px 3px;border-top:1px solid var(--line)}
+
+/* ---------- Scena ---------- */
+.stage-wrap{position:relative;min-width:0;min-height:0}
+pca-stage{position:absolute;inset:0;display:block;overflow:hidden;background:var(--stage)}
+pca-stage canvas.main{position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none}
+pca-stage canvas.main:active{cursor:grabbing}
+.chips{position:absolute;left:14px;top:14px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:500}
+.chip b{font-weight:700}
+.chip.step{color:var(--accent);border-color:var(--accent)}
+.legend{position:absolute;left:14px;bottom:14px;display:flex;gap:14px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:13px;pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.inset{position:absolute;right:14px;bottom:14px;width:300px;max-width:calc(100% - 28px);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;transition:opacity .35s, transform .35s}
+.inset.off{opacity:0;transform:translateY(12px);pointer-events:none}
+.inset .i-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.inset .i-title{font-weight:600;font-size:13px}
+.inset canvas{width:100%;height:210px;display:block}
+.drop-overlay{position:absolute;inset:10px;border:2px dashed var(--accent);border-radius:12px;display:grid;place-items:center;pointer-events:none;opacity:0;transition:opacity .15s}
+.drop-overlay span{background:var(--panel);border:1px solid var(--accent);color:var(--accent);font-weight:600;padding:8px 16px;border-radius:99px}
+pca-stage.drop-hover .drop-overlay{opacity:1}
+pca-stage.dragging-any .drop-overlay{opacity:.45}
+pca-stage.drop-hover .drop-overlay{opacity:1}
+
+.drawer{position:absolute;left:0;right:0;bottom:0;height:min(58%,520px);background:var(--panel);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;box-shadow:0 -12px 30px rgba(10,20,30,.16);z-index:5}
+.drawer-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.drawer-head .t{font-weight:600}
+.drawer-body{overflow:auto;flex:1;min-height:0}
+.dtable{border-collapse:collapse;width:100%;font-size:13px}
+.dtable th{position:sticky;top:0;background:var(--panel);text-align:right;font-weight:600;font-size:12px;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+.dtable th.l,.dtable td.l{text-align:left}
+.dtable td{text-align:right;padding:5px 12px;border-bottom:1px solid var(--grid);font-family:var(--font-num);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dtable td.cls{font-family:var(--font-ui)}
+.dtable tr:hover td{background:var(--accent-soft)}
+.dtable th.pc{color:var(--accent)}
+.icon-btn{border:1px solid var(--line);background:var(--stage);border-radius:7px;width:30px;height:30px;cursor:pointer;display:grid;place-items:center}
+.icon-btn:hover{border-color:var(--muted)}
+
+/* ---------- Kolumna prawa ---------- */
+.side{display:flex;flex-direction:column;gap:12px;min-height:0;overflow:auto}
+pca-controls{display:flex;flex-direction:column;gap:16px;padding:14px}
+.ctl-group{display:flex;flex-direction:column;gap:8px}
+.steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.steps button{width:100%;display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:var(--stage);cursor:pointer;text-align:left;font-size:13px}
+.steps button .n{font-family:var(--font-num);font-size:11px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);color:var(--muted);flex:none}
+.steps button.done .n{background:var(--line);color:var(--ink)}
+.steps button[aria-current="step"]{border-color:var(--accent);color:var(--accent);font-weight:600}
+.steps button[aria-current="step"] .n{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.nav{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px}
+.btn{border:1px solid var(--line);background:var(--stage);border-radius:7px;padding:8px 10px;cursor:pointer;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--muted)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--stage);padding:9px;cursor:pointer;font-weight:600;font-family:var(--font-num)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-checked="true"]{background:var(--accent);color:var(--panel)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:13.5px;padding:3px 0}
+.switch input{appearance:none;width:36px;height:20px;border-radius:99px;background:var(--line);position:relative;cursor:pointer;flex:none;margin:0;transition:background .15s}
+.switch input::after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:var(--panel);transition:left .15s}
+.switch input:checked{background:var(--accent)}
+.switch input:checked::after{left:18px}
+.ctl-row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+
+pca-metrics{display:flex;flex-direction:column;gap:0;padding:4px 14px 14px}
+.m-sec{padding-block:12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;animation:secIn .4s ease}
+.m-sec:first-child{border-top:0}
+@keyframes secIn{from{transform:translateY(6px);opacity:.3}to{transform:none;opacity:1}}
+.mt{border-collapse:collapse;width:100%;font-size:12.5px}
+.mt th{font-weight:600;color:var(--muted);font-size:11.5px;text-align:right;padding:3px 4px}
+.mt th.l,.mt td.l{text-align:left}
+.mt td{text-align:right;padding:4px;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.mt td.l{font-family:var(--font-ui)}
+.mt td .u{color:var(--muted);font-size:11px}
+.heat td.v{border:2px solid var(--panel);border-radius:4px;text-align:center;font-weight:500}
+.var-rows{display:flex;flex-direction:column;gap:6px}
+.var-row{display:grid;grid-template-columns:34px 1fr 58px;align-items:center;gap:8px;font-size:12.5px}
+.var-row .pc{font-family:var(--font-num);font-weight:500}
+.var-row .bar{height:14px;border-radius:3px;background:var(--grid);overflow:hidden}
+.var-row .bar i{display:block;height:100%;background:var(--accent);transition:width .5s}
+.var-row.drop .bar i{background:repeating-linear-gradient(135deg,var(--muted) 0 2px,transparent 2px 6px);opacity:.8}
+.var-row.drop .pc,.var-row.drop .pct{color:var(--muted);text-decoration:line-through}
+.var-row .pct{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.stats{display:grid;grid-template-columns:1fr auto;gap:6px 10px;margin-top:4px;font-size:13px}
+.stats .k{color:var(--muted)}
+.stats .v{font-family:var(--font-num);font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.stats .v.big{font-size:20px;color:var(--accent);font-weight:600}
+.stats .k.big{color:var(--ink);font-weight:600;align-self:center}
+
+@media (max-width:1100px){
+  .app{grid-template-columns:200px minmax(0,1fr) 300px}
+}
+@media (max-width:860px){
+  body{overflow:auto}
+  html,body{height:auto}
+  .app{grid-template-columns:minmax(0,1fr);height:auto}
+  dataset-library{overflow:visible}
+  .lib-list{flex-direction:row;overflow-x:auto;padding-bottom:6px}
+  .ds-card{flex:0 0 190px}
+  .stage-wrap{height:68vh;min-height:420px}
+  .side{overflow:visible}
+  .inset{width:220px}
+  .inset canvas{height:150px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <dataset-library class="panel" id="lib"></dataset-library>
+  <main class="stage-wrap">
+    <pca-stage class="panel" id="stage" data-dropzone></pca-stage>
+    <div class="drawer" id="drawer" hidden>
+      <div class="drawer-head"><span class="t" id="drawer-title">Tabela danych</span><button class="icon-btn" id="drawer-close" aria-label="Zamknij tabelę">✕</button></div>
+      <div class="drawer-body"><table class="dtable" id="dtable"></table></div>
+    </div>
+  </main>
+  <aside class="side">
+    <pca-controls class="panel" id="ctl"></pca-controls>
+    <pca-metrics class="panel" id="met"></pca-metrics>
+  </aside>
+</div>
+
+<script>
+/* =========================================================
+   Narzędzia
+   ========================================================= */
+const fmt=(v,d=2)=>{const s=Number(v).toLocaleString('pl-PL',{minimumFractionDigits:d,maximumFractionDigits:d});return s.replace('-','−');};
+const autoD=v=>{const a=Math.abs(v);return a>=100?0:a>=10?1:2;};
+const fmtA=v=>fmt(v,autoD(v));
+const fmtS=v=>(v>=0?'+':'')+fmtA(v);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function lerpDeep(a,b,t){if(typeof a==='number')return a+(b-a)*t;if(Array.isArray(a))return a.map((x,i)=>lerpDeep(x,b[i],t));if(a&&typeof a==='object'){const o={};for(const k in a)o[k]=lerpDeep(a[k],b[k],t);return o;}return b;}
+const ANIM_KEYS=['pts','orig','mean','pc','u','v','a'];
+const pickAnim=s=>{const o={};ANIM_KEYS.forEach(k=>{o[k]=s[k];});return clone(o);};
+const clone=o=>JSON.parse(JSON.stringify(o));
+
+let THEME={};
+function readTheme(){
+  const cs=getComputedStyle(document.documentElement);
+  const g=n=>cs.getPropertyValue(n).trim();
+  THEME={bg:g('--bg'),panel:g('--panel'),stage:g('--stage'),line:g('--line'),grid:g('--grid'),ink:g('--ink'),muted:g('--muted'),accent:g('--accent'),cls:[g('--c1'),g('--c2'),g('--c3')]};
+  document.dispatchEvent(new Event('theme-change'));
+}
+
+/* =========================================================
+   Zbiory danych (generowane deterministycznie)
+   ========================================================= */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(seed){const r=mulberry32(seed);return()=>{let u=0;while(u===0)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());};}
+const rnd=(v,d)=>Math.round(v*10**d)/10**d;
+
+function buildDatasets(){
+  const out=[];
+  { // Irysy
+    const g=gauss(11),rows=[],cls=[];
+    [[ [5.01,1.46,0.25],[0.35,0.17,0.11] ],[ [5.94,4.26,1.33],[0.52,0.47,0.20] ],[ [6.59,5.55,2.03],[0.64,0.55,0.27] ]].forEach(([m,s],ci)=>{
+      for(let i=0;i<20;i++){const f=g();rows.push([rnd(m[0]+s[0]*(.6*f+.8*g()),1),rnd(m[1]+s[1]*(.7*f+.71*g()),1),rnd(Math.max(.1,m[2]+s[2]*(.6*f+.8*g())),1)]);cls.push(ci);}
+    });
+    out.push({id:'iris',name:'Irysy',classNames:['setosa','versicolor','virginica'],rows,cls,
+      features:[{name:'Długość działki',short:'Działka',unit:'cm'},{name:'Długość płatka',short:'Płatek dł.',unit:'cm'},{name:'Szerokość płatka',short:'Płatek szer.',unit:'cm'}],dec:[1,1,1]});
+  }
+  { // Antropometria
+    const g=gauss(23),rows=[],cls=[];
+    [['kobiety',165,6.2,22.4],['mężczyźni',178.5,7,24.6]].forEach(([n,m,s,bmi],ci)=>{
+      for(let i=0;i<25;i++){const wz=m+s*g();const masa=(bmi+2.2*g())*(wz/100)**2;const but=.25*wz-2.5+(ci?.6:0)+.7*g();rows.push([Math.round(wz),rnd(masa,1),Math.round(but)]);cls.push(ci);}
+    });
+    out.push({id:'body',name:'Antropometria',classNames:['kobiety','mężczyźni'],rows,cls,
+      features:[{name:'Wzrost',short:'Wzrost',unit:'cm'},{name:'Masa ciała',short:'Masa',unit:'kg'},{name:'Rozmiar buta',short:'But',unit:'EU'}],dec:[0,1,0]});
+  }
+  { // Oceny
+    const g=gauss(37),rows=[],cls=[];
+    [[1,-.3],[-.6,1],[0,0]].forEach(([ps,ph],ci)=>{
+      for(let i=0;i<20;i++){const g0=g(),s=ps+.5*g(),h=ph+.5*g();const c=v=>Math.round(clamp(v,0,100));rows.push([c(62+11*g0+11*s+6*g()),c(58+11*g0+10*s+7*g()),c(64+11*g0+10*h+6*g())]);cls.push(ci);}
+    });
+    out.push({id:'grades',name:'Wyniki uczniów',classNames:['mat-fiz','humanistyczny','ogólny'],rows,cls,
+      features:[{name:'Matematyka',short:'Mat.',unit:'pkt'},{name:'Fizyka',short:'Fiz.',unit:'pkt'},{name:'Język polski',short:'Pol.',unit:'pkt'}],dec:[0,0,0]});
+  }
+  { // Pogoda
+    const g=gauss(51),rows=[],cls=[];
+    [[20.5,4,0],[9,4.5,0],[-1,3.5,3]].forEach(([m,s,dp],ci)=>{
+      for(let i=0;i<20;i++){const t=m+s*g();const hum=clamp(78-.9*(t-10)+7*g(),30,100);const p=1015+6*g()-.2*(hum-70)+dp;rows.push([rnd(t,1),Math.round(hum),Math.round(p)]);cls.push(ci);}
+    });
+    out.push({id:'weather',name:'Pomiary pogody',classNames:['lato','jesień','zima'],rows,cls,
+      features:[{name:'Temperatura',short:'Temp.',unit:'°C'},{name:'Wilgotność',short:'Wilg.',unit:'%'},{name:'Ciśnienie',short:'Ciśn.',unit:'hPa'}],dec:[1,0,0]});
+  }
+  { // Samochody
+    const g=gauss(67),rows=[],cls=[];
+    [[78,12,1080,70],[125,20,1340,90],[185,35,1760,140]].forEach(([mm,ms,wm,ws],ci)=>{
+      for(let i=0;i<20;i++){const f=g();const moc=mm+ms*(.7*f+.7*g());const masa=wm+ws*(.7*f+.7*g());const sp=1.6+.0026*masa+.011*moc+.45*g();rows.push([Math.round(moc),Math.round(masa/5)*5,rnd(sp,1)]);cls.push(ci);}
+    });
+    out.push({id:'cars',name:'Samochody',classNames:['miejskie','kompaktowe','SUV'],rows,cls,
+      features:[{name:'Moc',short:'Moc',unit:'KM'},{name:'Masa',short:'Masa',unit:'kg'},{name:'Spalanie',short:'Spal.',unit:'l/100 km'}],dec:[0,0,1]});
+  }
+  return out;
+}
+const DATASETS=buildDatasets();
+const byId=id=>DATASETS.find(d=>d.id===id);
+
+/* =========================================================
+   PCA
+   ========================================================= */
+function eigSym3(A){
+  const a=A.map(r=>r.slice());const V=[[1,0,0],[0,1,0],[0,0,1]];
+  for(let sw=0;sw<60;sw++){
+    const off=a[0][1]**2+a[0][2]**2+a[1][2]**2;if(off<1e-22)break;
+    for(let p=0;p<2;p++)for(let q=p+1;q<3;q++){
+      if(Math.abs(a[p][q])<1e-18)continue;
+      const th=(a[q][q]-a[p][p])/(2*a[p][q]);
+      const t=(th>=0?1:-1)/(Math.abs(th)+Math.sqrt(th*th+1));
+      const c=1/Math.sqrt(t*t+1),s=t*c;
+      for(let k=0;k<3;k++){const x=a[k][p],y=a[k][q];a[k][p]=c*x-s*y;a[k][q]=s*x+c*y;}
+      for(let k=0;k<3;k++){const x=a[p][k],y=a[q][k];a[p][k]=c*x-s*y;a[q][k]=s*x+c*y;}
+      for(let k=0;k<3;k++){const x=V[k][p],y=V[k][q];V[k][p]=c*x-s*y;V[k][q]=s*x+c*y;}
+    }
+  }
+  const pairs=[0,1,2].map(i=>({val:a[i][i],vec:[V[0][i],V[1][i],V[2][i]]})).sort((x,y)=>y.val-x.val);
+  pairs.forEach(pr=>{let m=0;pr.vec.forEach((v,i)=>{if(Math.abs(v)>Math.abs(pr.vec[m]))m=i;});if(pr.vec[m]<0)pr.vec=pr.vec.map(v=>-v);});
+  return pairs;
+}
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+
+function pcaCompute(ds,standardize){
+  const X=ds.rows,n=X.length;
+  const mean=[0,1,2].map(j=>X.reduce((s,r)=>s+r[j],0)/n);
+  const std=[0,1,2].map(j=>Math.sqrt(X.reduce((s,r)=>s+(r[j]-mean[j])**2,0)/(n-1)));
+  const min=[0,1,2].map(j=>Math.min(...X.map(r=>r[j]))),max=[0,1,2].map(j=>Math.max(...X.map(r=>r[j])));
+  const Z=X.map(r=>r.map((v,j)=>standardize?(v-mean[j])/std[j]:v-mean[j]));
+  const C=[0,1,2].map(i=>[0,1,2].map(j=>Z.reduce((s,z)=>s+z[i]*z[j],0)/(n-1)));
+  const eig=eigSym3(C);
+  const vals=eig.map(e=>Math.max(0,e.val)),vecs=eig.map(e=>e.vec);
+  const total=vals.reduce((a,b)=>a+b,0);
+  const ratio=vals.map(v=>v/total);
+  const scores=Z.map(z=>vecs.map(v=>dot(z,v)));
+  let S=0;Z.forEach(z=>z.forEach(v=>{S=Math.max(S,Math.abs(v));}));S*=1.05;
+  return {n,mean,std,min,max,Z,C,vals,vecs,total,ratio,scores,S,standardize};
+}
+function projectZ(res,i,k){const sc=res.scores[i];const out=[0,0,0];for(let c=0;c<k;c++)for(let j=0;j<3;j++)out[j]+=sc[c]*res.vecs[c][j];return out;}
+function recon(res,k){
+  const errs=res.Z.map((z,i)=>{const p=projectZ(res,i,k);return (z[0]-p[0])**2+(z[1]-p[1])**2+(z[2]-p[2])**2;});
+  return {errs,mse:errs.reduce((a,b)=>a+b,0)/errs.length};
+}
+
+/* =========================================================
+   Rzutowanie perspektywiczne + znaczniki (wspólne)
+   ========================================================= */
+function project(p,cam,w,h){
+  const x=p[0],y=p[2],z=p[1];
+  const cy=Math.cos(cam.yaw),sy=Math.sin(cam.yaw);
+  const x1=x*cy-z*sy,z1=x*sy+z*cy;
+  const cp=Math.cos(cam.pitch),sp=Math.sin(cam.pitch);
+  const y1=y*cp-z1*sp,z2=y*sp+z1*cp;
+  const D=cam.dist||5,k=D/(D-z2);
+  const s=(cam.zoom||1)*Math.min(w,h)*(cam.fit||.36)*k;
+  return {x:w/2+x1*s,y:h/2-y1*s,z:z2,s:k};
+}
+function marker(ctx,x,y,r,shape){
+  ctx.beginPath();
+  if(shape===1){ctx.moveTo(x,y-r*1.25);ctx.lineTo(x+r*1.15,y+r*.8);ctx.lineTo(x-r*1.15,y+r*.8);ctx.closePath();}
+  else if(shape===2){ctx.rect(x-r*.9,y-r*.9,r*1.8,r*1.8);}
+  else ctx.arc(x,y,r,0,Math.PI*2);
+}
+function boxDisplay(ds){
+  const n=ds.rows.length;
+  return [0,1,2].map(j=>{const col=ds.rows.map(r=>r[j]);const mn=Math.min(...col),mx=Math.max(...col);return {mid:(mn+mx)/2,half:Math.max(1e-9,(mx-mn)/2*1.1)};});
+}
+function rawDisplay(ds){const b=boxDisplay(ds);return ds.rows.map(r=>r.map((v,j)=>(v-b[j].mid)/b[j].half));}
+function drawMini(canvas,ds,yaw,pitch){
+  const dpr=window.devicePixelRatio||1,w=canvas.clientWidth||200,h=canvas.clientHeight||100;
+  if(canvas.width!==Math.round(w*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+  const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+  const cam={yaw,pitch,zoom:1,dist:5,fit:.33};
+  ctx.strokeStyle=THEME.line;ctx.lineWidth=1;
+  const E=[[[-1,-1,-1],[1,-1,-1]],[[-1,-1,-1],[-1,1,-1]],[[-1,-1,-1],[-1,-1,1]],[[1,-1,-1],[1,1,-1]],[[-1,1,-1],[1,1,-1]]];
+  E.forEach(([a,b])=>{const p=project(a,cam,w,h),q=project(b,cam,w,h);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();});
+  const pts=rawDisplay(ds).map((p,i)=>({q:project(p,cam,w,h),c:ds.cls[i]})).sort((a,b)=>a.q.z-b.q.z);
+  pts.forEach(({q,c})=>{marker(ctx,q.x,q.y,2.3*q.s,c);ctx.fillStyle=THEME.cls[c];ctx.fill();});
+}
+
+/* =========================================================
+   Komponent: biblioteka zbiorów danych
+   ========================================================= */
+class DatasetLibrary extends HTMLElement{
+  connectedCallback(){
+    if(this._init)return;this._init=true;
+    this.innerHTML='<h3>Zbiory danych</h3><div class="lib-list" role="list"></div>';
+    this.list=this.querySelector('.lib-list');
+    document.addEventListener('theme-change',()=>this.drawThumbs());
+  }
+  set datasets(v){this._ds=v;this.render();}
+  set active(id){this._active=id;this.querySelectorAll('.ds-card').forEach(c=>{const on=c.dataset.id===id;c.setAttribute('aria-current',on?'true':'false');c.querySelector('.ds-badge').hidden=!on;});}
+  render(){
+    this.list.innerHTML='';
+    this._ds.forEach(ds=>{
+      const el=document.createElement('div');
+      el.className='ds-card';el.dataset.id=ds.id;el.tabIndex=0;el.setAttribute('role','listitem');
+      el.setAttribute('aria-label',ds.name+' — przeciągnij na scenę lub naciśnij Enter');
+      el.innerHTML=`<canvas></canvas><div class="ds-name"><span>${ds.name}</span><span class="ds-badge" hidden>scena</span></div>
+        <div class="ds-meta">${ds.rows.length} próbek · ${ds.classNames.length} klasy</div>
+        <div class="ds-feat">${ds.features.map(f=>f.short).join(' · ')}</div>`;
+      this.list.appendChild(el);
+      this.bindDrag(el,ds);
+      el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();this.emit(ds.id);}});
+    });
+    requestAnimationFrame(()=>this.drawThumbs());
+    if(this._active)this.active=this._active;
+  }
+  drawThumbs(){this.querySelectorAll('.ds-card').forEach(c=>drawMini(c.querySelector('canvas'),byId(c.dataset.id),-.65,.35));}
+  emit(id){this.dispatchEvent(new CustomEvent('dataset-drop',{detail:{id},bubbles:true}));}
+  bindDrag(el,ds){
+    let start=null,drag=null;
+    const zoneAt=(x,y)=>{const t=document.elementFromPoint(x,y);return t&&t.closest('[data-dropzone]');};
+    el.addEventListener('pointerdown',e=>{if(e.button!==0)return;start={x:e.clientX,y:e.clientY,id:e.pointerId};el.setPointerCapture(e.pointerId);});
+    el.addEventListener('pointermove',e=>{
+      if(!start)return;
+      if(!drag){if(Math.hypot(e.clientX-start.x,e.clientY-start.y)<6)return;drag=this.beginDrag(el,ds);}
+      drag.move(e.clientX,e.clientY);
+      const z=zoneAt(e.clientX,e.clientY);
+      if(z!==drag.zone){
+        if(drag.zone){drag.zone.classList.remove('drop-hover');drag.zone.dispatchEvent(new CustomEvent('drag-preview',{detail:null}));}
+        drag.zone=z;
+        if(z){z.classList.add('drop-hover');z.dispatchEvent(new CustomEvent('drag-preview',{detail:ds}));}
+      }
+    });
+    const end=e=>{
+      if(drag){
+        const z=drag.zone;
+        if(z){z.classList.remove('drop-hover');z.dispatchEvent(new CustomEvent('drag-preview',{detail:null}));}
+        drag.destroy();
+        if(z&&e.type==='pointerup')this.emit(ds.id);
+      }
+      start=null;drag=null;
+    };
+    el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+  }
+  beginDrag(el,ds){
+    el.classList.add('lifting');
+    document.querySelectorAll('[data-dropzone]').forEach(z=>z.classList.add('dragging-any'));
+    const g=document.createElement('div');g.className='ghost';
+    const head=ds.features.map(f=>`<th>${f.short}</th>`).join('');
+    const body=ds.rows.slice(0,4).map(r=>`<tr>${r.map((v,j)=>`<td>${fmt(v,ds.dec[j])}</td>`).join('')}</tr>`).join('');
+    g.innerHTML=`<canvas></canvas><div class="g-name">${ds.name} <span class="ds-meta">· ${ds.rows.length} × 3</span></div><table><tr>${head}</tr>${body}</table>`;
+    document.body.appendChild(g);
+    const cv=g.querySelector('canvas');let yaw=-.65,raf,alive=true,px=0,py=0,tilt=0;
+    const loop=()=>{if(!alive)return;yaw+=reduceMotion?0:.02;drawMini(cv,ds,yaw,.35);raf=requestAnimationFrame(loop);};loop();
+    return {zone:null,
+      move(x,y){tilt=clamp((x-px)*.4,-6,6)*.5+tilt*.5;px=x;py=y;g.style.transform=`translate(${x-24}px,${y-24}px) rotate(${tilt}deg)`;},
+      destroy(){alive=false;cancelAnimationFrame(raf);g.remove();el.classList.remove('lifting');document.querySelectorAll('[data-dropzone]').forEach(z=>z.classList.remove('dragging-any'));}};
+  }
+}
+customElements.define('dataset-library',DatasetLibrary);
+
+/* =========================================================
+   Komponent: kontrolki symulacji
+   ========================================================= */
+const STEPS=['Dane','Centrowanie','Standaryzacja','Kowariancja','Wektory własne','Rzutowanie'];
+const stepName=(i,std)=>i===2&&!std?'Skalowanie':i===3&&std?'Korelacja':STEPS[i];
+const ICON_PLAY='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z" fill="currentColor"/></svg>';
+const ICON_PAUSE='<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z" fill="currentColor"/></svg>';
+class PcaControls extends HTMLElement{
+  connectedCallback(){
+    if(this._init)return;this._init=true;
+    this.innerHTML=`
+      <div class="ctl-group"><h3>Etapy PCA</h3>
+        <ol class="steps">${STEPS.map((s,i)=>`<li><button type="button" data-step="${i}"><span class="n">${i+1}</span><span class="lbl">${s}</span></button></li>`).join('')}</ol>
+        <div class="nav">
+          <button type="button" class="btn" data-act="prev" aria-label="Poprzedni etap">←</button>
+          <button type="button" class="btn primary" data-act="play"></button>
+          <button type="button" class="btn" data-act="next" aria-label="Następny etap">→</button>
+        </div>
+      </div>
+      <div class="ctl-group"><h3>Rzutowanie</h3>
+        <div class="seg" role="radiogroup" aria-label="Wymiar rzutu">
+          <button type="button" role="radio" data-k="1">1D</button><button type="button" role="radio" data-k="2">2D</button>
+        </div>
+      </div>
+      <div class="ctl-group"><h3>Opcje</h3>
+        <label class="switch"><span>Standaryzacja (z-score)</span><input type="checkbox" id="opt-std"></label>
+        <label class="switch"><span>Błędy rzutu</span><input type="checkbox" id="opt-res"></label>
+        <label class="switch"><span>Obrót automatyczny</span><input type="checkbox" id="opt-rot"></label>
+      </div>
+      <div class="ctl-row"><button type="button" class="btn" data-act="table">Tabela danych</button><button type="button" class="btn" data-act="reset">Reset widoku</button></div>`;
+    this.addEventListener('click',e=>{
+      const b=e.target.closest('button');if(!b)return;
+      if(b.dataset.step)return this.emit({step:+b.dataset.step,playing:false});
+      if(b.dataset.k)return this.emit({k:+b.dataset.k,step:5});
+      const s=this._s;
+      switch(b.dataset.act){
+        case 'prev':return this.emit({step:Math.max(0,s.step-1),playing:false});
+        case 'next':return this.emit({step:Math.min(5,s.step+1),playing:false});
+        case 'play':return this.emit({playing:!s.playing,step:!s.playing&&s.step===5?0:s.step});
+        case 'table':return this.emit({table:!s.table});
+        case 'reset':return this.dispatchEvent(new CustomEvent('reset-view',{bubbles:true}));
+      }
+    });
+    this.querySelector('#opt-std').addEventListener('change',e=>this.emit({standardize:e.target.checked}));
+    this.querySelector('#opt-res').addEventListener('change',e=>this.emit({residuals:e.target.checked}));
+    this.querySelector('#opt-rot').addEventListener('change',e=>this.emit({autoRotate:e.target.checked}));
+  }
+  emit(patch){this.dispatchEvent(new CustomEvent('pca-change',{detail:patch,bubbles:true}));}
+  set state(s){
+    this._s=s;
+    this.querySelectorAll('[data-step]').forEach(b=>{const i=+b.dataset.step;b.querySelector('.lbl').textContent=stepName(i,s.standardize);b.classList.toggle('done',i<s.step);if(i===s.step)b.setAttribute('aria-current','step');else b.removeAttribute('aria-current');});
+    this.querySelectorAll('[data-k]').forEach(b=>b.setAttribute('aria-checked',String(+b.dataset.k===s.k)));
+    this.querySelector('[data-act=prev]').disabled=s.step===0;
+    this.querySelector('[data-act=next]').disabled=s.step===5;
+    this.querySelector('[data-act=play]').innerHTML=s.playing?ICON_PAUSE+' Pauza':ICON_PLAY+' Odtwórz';
+    this.querySelector('[data-act=table]').classList.toggle('primary',s.table);
+    this.querySelector('#opt-std').checked=s.standardize;
+    this.querySelector('#opt-res').checked=s.residuals;
+    this.querySelector('#opt-rot').checked=s.autoRotate;
+  }
+}
+customElements.define('pca-controls',PcaControls);
+
+/* =========================================================
+   Komponent: scena 3D
+   ========================================================= */
+class PcaStage extends HTMLElement{
+  connectedCallback(){
+    if(this._init)return;this._init=true;
+    this.innerHTML=`<canvas class="main" aria-label="Wizualizacja 3D danych"></canvas>
+      <div class="chips"><span class="chip" id="chip-ds"></span><span class="chip step" id="chip-step"></span></div>
+      <div class="legend" id="legend"></div>
+      <div class="inset off" id="inset"><div class="i-head"><span class="i-title" id="inset-title"></span><span class="ds-meta" id="inset-sub"></span></div><canvas></canvas></div>
+      <div class="drop-overlay"><span>Upuść, aby wczytać</span></div>`;
+    this.cv=this.querySelector('canvas.main');this.ctx=this.cv.getContext('2d');
+    this.insetCv=this.querySelector('#inset canvas');
+    this.cam={yaw:-.65,pitch:.38,zoom:1,dist:5,fit:.36};
+    this.autoRotate=true;this.cur=null;this.preview=null;this.highlight=-1;
+    new ResizeObserver(()=>this.resize()).observe(this);this.resize();
+    let drag=null;
+    this.cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};this.dragging=true;this.cv.setPointerCapture(e.pointerId);});
+    this.cv.addEventListener('pointermove',e=>{if(!drag)return;this.cam.yaw+=(e.clientX-drag.x)*.008;this.cam.pitch=clamp(this.cam.pitch+(e.clientY-drag.y)*.008,-1.45,1.45);drag={x:e.clientX,y:e.clientY};});
+    const up=()=>{drag=null;this.dragging=false;};
+    this.cv.addEventListener('pointerup',up);this.cv.addEventListener('pointercancel',up);
+    this.cv.addEventListener('wheel',e=>{e.preventDefault();this.cam.zoom=clamp(this.cam.zoom*Math.exp(-e.deltaY*.0012),.45,2.8);},{passive:false});
+    this.cv.addEventListener('dblclick',()=>this.resetView());
+    this.addEventListener('drag-preview',e=>{this.preview=e.detail?rawDisplay(e.detail).map((p,i)=>({p,c:e.detail.cls[i]})):null;});
+    document.addEventListener('theme-change',()=>this.drawInset());
+    this.frame=this.frame.bind(this);requestAnimationFrame(this.frame);
+  }
+  resetView(){Object.assign(this.cam,{yaw:-.65,pitch:.38,zoom:1});}
+  resize(){
+    const dpr=window.devicePixelRatio||1;this.w=this.clientWidth;this.h=this.clientHeight;
+    this.cv.width=Math.round(this.w*dpr);this.cv.height=Math.round(this.h*dpr);this.dpr=dpr;
+    this.drawInset();
+  }
+  setScene(target,fresh){
+    const tgt=pickAnim(target);
+    if(fresh||!this.cur||this.cur.pts.length!==tgt.pts.length){
+      const from=clone(tgt);from.pts=from.pts.map(()=>[0,0,0]);from.orig=from.pts.map(()=>[0,0,0]);from.a=from.a.map(()=>0);
+      this.from=from;this.cur=clone(from);
+    }else this.from=clone(this.cur);
+    this.to=tgt;this.cls=target.cls;this.meta=target.meta;this.t0=performance.now();this.dur=reduceMotion?1:(fresh?1100:800);
+    this.querySelector('#chip-ds').innerHTML=`<b>${target.meta.name}</b> · n = ${target.pts.length}`;
+    this.querySelector('#chip-step').textContent=`${target.meta.step+1} / 6 · ${target.meta.stepName}`;
+    this.querySelector('#legend').innerHTML=target.meta.classNames.map((n,i)=>`<span>${this.legendIcon(i)}${n}</span>`).join('');
+  }
+  legendIcon(i){
+    const c=`var(--c${i+1})`;
+    if(i===1)return `<svg width="13" height="13" viewBox="0 0 12 12"><path d="M6 1 11 10H1z" fill="${c}"/></svg>`;
+    if(i===2)return `<svg width="12" height="12" viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9" fill="${c}"/></svg>`;
+    return `<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="${c}"/></svg>`;
+  }
+  setInset(info){this.inset=info;this.querySelector('#inset').classList.toggle('off',!info);if(info){this.querySelector('#inset-title').textContent=info.title;this.querySelector('#inset-sub').textContent=info.sub;}this.drawInset();}
+  drawInset(){
+    const info=this.inset,cv=this.insetCv;if(!info||!cv)return;
+    const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
+    cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);
+    const ctx=cv.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    const T=THEME,pad=22,sc=info.scores;
+    ctx.font='500 11px "IBM Plex Mono", monospace';
+    let m=1e-9;sc.forEach(s=>{m=Math.max(m,Math.abs(s[0]));if(info.k===2)m=Math.max(m,Math.abs(s[1]));});m*=1.08;
+    const cx=w/2,cy=info.k===2?h/2:h/2;const R=Math.min(w/2-pad,info.k===2?h/2-pad:w/2-pad);
+    ctx.strokeStyle=T.line;ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(pad*.4,cy);ctx.lineTo(w-pad*.4,cy);ctx.stroke();
+    if(info.k===2){ctx.beginPath();ctx.moveTo(cx,pad*.4);ctx.lineTo(cx,h-pad*.4);ctx.stroke();}
+    ctx.fillStyle=T.muted;ctx.textAlign='right';ctx.fillText('PC1',w-4,cy-6);
+    if(info.k===2){ctx.textAlign='left';ctx.fillText('PC2',cx+6,12);}
+    const pts=sc.map((s,i)=>{let x=cx+s[0]/m*(w/2-pad);let y;
+      if(info.k===2)y=cy-s[1]/m*(h/2-pad);
+      else{const lane=(info.cls[i]-(info.nCls-1)/2)*16;const jit=((i*7919)%13/13-.5)*10;y=cy+lane+jit;}
+      return {x,y,c:info.cls[i],i};});
+    pts.forEach(p=>{marker(ctx,p.x,p.y,3.6,p.c);ctx.fillStyle=T.cls[p.c];ctx.fill();ctx.lineWidth=1;ctx.strokeStyle=T.panel;ctx.stroke();});
+    if(this.highlight>=0&&pts[this.highlight]){const p=pts[this.highlight];ctx.beginPath();ctx.arc(p.x,p.y,8,0,7);ctx.strokeStyle=T.ink;ctx.lineWidth=2;ctx.stroke();}
+  }
+  frame(now){
+    requestAnimationFrame(this.frame);
+    if(!this.cur||!this.w)return;
+    if(this.autoRotate&&!this.dragging&&!reduceMotion)this.cam.yaw+=.0025;
+    const t=clamp((now-this.t0)/this.dur,0,1);
+    if(t<=1&&this.from)this.cur=lerpDeep(this.from,this.to,ease(t));
+    this.draw();
+  }
+  line(P,a,b){const p=P(a),q=P(b);this.ctx.beginPath();this.ctx.moveTo(p.x,p.y);this.ctx.lineTo(q.x,q.y);this.ctx.stroke();}
+  label(x,y,text,opt={}){
+    const ctx=this.ctx;ctx.font=opt.font||'600 12.5px "Instrument Sans", sans-serif';
+    const tw=ctx.measureText(text).width,ph=opt.h||20,pw=tw+12;
+    const bx=x-pw/2,by=y-ph/2;
+    ctx.globalAlpha=(opt.alpha??1)*.9;ctx.fillStyle=THEME.panel;ctx.beginPath();ctx.roundRect(bx,by,pw,ph,5);ctx.fill();
+    if(opt.border){ctx.strokeStyle=opt.border;ctx.lineWidth=1;ctx.stroke();}
+    ctx.globalAlpha=opt.alpha??1;ctx.fillStyle=opt.color||THEME.ink;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,x,y+.5);
+    ctx.globalAlpha=1;
+  }
+  draw(){
+    const ctx=this.ctx,W=this.w,H=this.h,T=THEME,cur=this.cur,a=cur.a,meta=this.meta;
+    ctx.setTransform(this.dpr,0,0,this.dpr,0,0);ctx.clearRect(0,0,W,H);
+    const P=p=>project(p,this.cam,W,H);
+    const [aBox,aMean,aPc1,aPc2,aPc3,aPlane,aRes]=a;
+    // podłoga
+    ctx.strokeStyle=T.grid;ctx.lineWidth=1;
+    for(const k of [-1,-.5,0,.5,1]){this.line(P,[k,-1,-1],[k,1,-1]);this.line(P,[-1,k,-1],[1,k,-1]);}
+    // pudełko
+    if(aBox>.01){ctx.globalAlpha=aBox;ctx.strokeStyle=T.line;
+      const c=[-1,1];for(const y of c)for(const z of c)this.line(P,[-1,y,z],[1,y,z]);for(const x of c)for(const z of c)this.line(P,[x,-1,z],[x,1,z]);for(const x of c)for(const y of c)this.line(P,[x,y,-1],[x,y,1]);
+      ctx.globalAlpha=1;}
+    // osie cech
+    ctx.strokeStyle=T.muted;ctx.lineWidth=1.2;
+    meta.axes.forEach((ax,j)=>{const e=[0,0,0];e[j]=1;const n=[0,0,0];n[j]=-1;ctx.globalAlpha=.7;this.line(P,n,[e[0]*1.08,e[1]*1.08,e[2]*1.08]);ctx.globalAlpha=1;});
+    // płaszczyzna / prosta rzutu
+    if(aPlane>.01){
+      const u=cur.u,v=cur.v;const C=[[1,1],[1,-1],[-1,-1],[-1,1]].map(([s,t])=>P([u[0]*s+v[0]*t,u[1]*s+v[1]*t,u[2]*s+v[2]*t]));
+      ctx.globalAlpha=aPlane*.14;ctx.fillStyle=T.accent;ctx.beginPath();C.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fill();
+      ctx.globalAlpha=aPlane*.55;ctx.strokeStyle=T.accent;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.globalAlpha=aPlane*.25;ctx.lineWidth=1;
+      for(const s of [-.5,0,.5]){this.line(P,[u[0]*s+v[0],u[1]*s+v[1],u[2]*s+v[2]],[u[0]*s-v[0],u[1]*s-v[1],u[2]*s-v[2]]);this.line(P,[v[0]*s+u[0],v[1]*s+u[1],v[2]*s+u[2]],[v[0]*s-u[0],v[1]*s-u[1],v[2]*s-u[2]]);}
+      ctx.globalAlpha=1;
+    }
+    // błędy rzutu
+    if(aRes>.01){
+      ctx.setLineDash([3,3]);ctx.lineWidth=1;ctx.strokeStyle=T.ink;
+      cur.pts.forEach((p,i)=>{const o=cur.orig[i];const d=Math.hypot(o[0]-p[0],o[1]-p[1],o[2]-p[2]);if(d<.003)return;ctx.globalAlpha=aRes*.5;this.line(P,o,p);});
+      ctx.setLineDash([]);
+      cur.orig.forEach((o,i)=>{const q=P(o);ctx.globalAlpha=aRes*.55;marker(ctx,q.x,q.y,3*q.s,this.cls[i]);ctx.strokeStyle=T.cls[this.cls[i]];ctx.lineWidth=1;ctx.stroke();});
+      ctx.globalAlpha=1;
+    }
+    // punkty
+    const dim=this.preview?.22:1;
+    const items=cur.pts.map((p,i)=>({i,q:P(p)})).sort((x,y)=>x.q.z-y.q.z);
+    items.forEach(({i,q})=>{const c=this.cls[i];ctx.globalAlpha=dim;marker(ctx,q.x,q.y,4.6*q.s,c);ctx.fillStyle=T.cls[c];ctx.fill();ctx.lineWidth=1.2;ctx.strokeStyle=T.stage;ctx.stroke();});
+    ctx.globalAlpha=1;
+    if(this.highlight>=0&&cur.pts[this.highlight]){const q=P(cur.pts[this.highlight]);ctx.beginPath();ctx.arc(q.x,q.y,11*q.s,0,7);ctx.strokeStyle=T.ink;ctx.lineWidth=2;ctx.stroke();}
+    // podgląd przeciąganego zbioru
+    if(this.preview){
+      this.preview.forEach(({p,c})=>{const q=P(p);marker(ctx,q.x,q.y,4.6*q.s,c);ctx.strokeStyle=T.cls[c];ctx.lineWidth=1.6;ctx.stroke();});
+    }
+    // średnia
+    if(aMean>.01){const q=P(cur.mean);ctx.globalAlpha=aMean;ctx.strokeStyle=T.ink;ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(q.x-9,q.y);ctx.lineTo(q.x+9,q.y);ctx.moveTo(q.x,q.y-9);ctx.lineTo(q.x,q.y+9);ctx.stroke();
+      ctx.globalAlpha=1;this.label(q.x+24,q.y-14,'x̄',{alpha:aMean,font:'600 13px "IBM Plex Mono", monospace'});}
+    // składowe główne
+    [aPc1,aPc2,aPc3].forEach((al,c)=>{
+      if(al<.01)return;const v=cur.pc[c];const o=P([0,0,0]),e=P(v),n=P([-v[0],-v[1],-v[2]]);
+      ctx.globalAlpha=al*.45;ctx.strokeStyle=T.accent;ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(n.x,n.y);ctx.stroke();ctx.setLineDash([]);
+      ctx.globalAlpha=al;ctx.lineWidth=[3.5,2.6,1.8][c];ctx.beginPath();ctx.moveTo(o.x,o.y);ctx.lineTo(e.x,e.y);ctx.stroke();
+      const ang=Math.atan2(e.y-o.y,e.x-o.x),hl=11;
+      ctx.fillStyle=T.accent;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.x-hl*Math.cos(ang-.4),e.y-hl*Math.sin(ang-.4));ctx.lineTo(e.x-hl*Math.cos(ang+.4),e.y-hl*Math.sin(ang+.4));ctx.closePath();ctx.fill();
+      ctx.globalAlpha=1;
+      this.label(e.x+Math.cos(ang)*20,e.y+Math.sin(ang)*20,'PC'+(c+1),{alpha:al,color:T.accent,border:T.accent,font:'600 12px "IBM Plex Mono", monospace'});
+    });
+    // etykiety osi
+    meta.axes.forEach((ax,j)=>{
+      const e=[0,0,0];e[j]=1.2;const n=[0,0,0];n[j]=-1;const p=[0,0,0];p[j]=1;
+      const qe=P(e),qn=P(n),qp=P(p);
+      this.label(qe.x,qe.y,ax.name);
+      this.label(qp.x,qp.y+(qp.y>qe.y?14:-14)*0+16,ax.plus,{font:'500 11px "IBM Plex Mono", monospace',color:T.muted,h:17,alpha:.95});
+      this.label(qn.x,qn.y+16,ax.minus,{font:'500 11px "IBM Plex Mono", monospace',color:T.muted,h:17,alpha:.8});
+    });
+  }
+}
+customElements.define('pca-stage',PcaStage);
+
+/* =========================================================
+   Komponent: wyniki (statystyki, macierze, wariancja)
+   ========================================================= */
+class PcaMetrics extends HTMLElement{
+  update(ds,res,st){
+    const f=ds.features,s=st.step;let h='';
+    h+=`<section class="m-sec"><h3>Cechy</h3><table class="mt"><tr><th class="l">Cecha</th><th>Średnia</th><th>Odch. std.</th></tr>
+      ${f.map((ft,j)=>`<tr><td class="l">${ft.name} <span class="u">${ft.unit}</span></td><td>${fmtA(res.mean[j])}</td><td>${fmtA(res.std[j])}</td></tr>`).join('')}</table></section>`;
+    if(s>=3){
+      let mx=0;res.C.forEach(r=>r.forEach(v=>{mx=Math.max(mx,Math.abs(v));}));
+      const cell=v=>{const pct=Math.round(Math.abs(v)/mx*62);const col=v>=0?'var(--pos)':'var(--neg)';return `<td class="v" style="background:color-mix(in oklab, ${col} ${pct}%, var(--panel))">${res.standardize?fmt(v,2):fmtA(v)}</td>`;};
+      h+=`<section class="m-sec"><h3>${res.standardize?'Macierz korelacji':'Macierz kowariancji'}</h3><table class="mt heat"><tr><th></th>${f.map(x=>`<th style="text-align:center">${x.short}</th>`).join('')}</tr>
+        ${res.C.map((r,i)=>`<tr><td class="l">${f[i].short}</td>${r.map(cell).join('')}</tr>`).join('')}</table></section>`;
+    }
+    if(s>=4){
+      h+=`<section class="m-sec"><h3>Wartości i wektory własne</h3><table class="mt"><tr><th class="l"></th><th>λ</th>${f.map(x=>`<th>${x.short}</th>`).join('')}</tr>
+        ${res.vals.map((l,c)=>`<tr><td class="l num" style="color:var(--accent);font-weight:600">PC${c+1}</td><td>${fmtA(l)}</td>${res.vecs[c].map(v=>`<td>${fmt(v,2)}</td>`).join('')}</tr>`).join('')}</table></section>`;
+      const k=s===5?st.k:3;const kept=res.ratio.slice(0,k).reduce((a,b)=>a+b,0);
+      h+=`<section class="m-sec"><h3>Wariancja wyjaśniona</h3><div class="var-rows">
+        ${res.ratio.map((r,c)=>`<div class="var-row ${c>=k?'drop':''}"><span class="pc">PC${c+1}</span><span class="bar"><i style="width:${(r*100).toFixed(1)}%"></i></span><span class="pct">${fmt(r*100,1)} %</span></div>`).join('')}</div>`;
+      if(s===5){
+        const rc=recon(res,k);
+        h+=`<div class="stats"><span class="k">Wariancja zachowana</span><span class="v">${fmt(kept*100,1)} %</span>
+          <span class="k big">Wariancja utracona</span><span class="v big">${fmt((1-kept)*100,1)} %</span>
+          <span class="k">Błąd rekonstrukcji (MSE)</span><span class="v">${fmt(rc.mse,res.standardize?3:autoD(rc.mse))}${res.standardize?' σ²':''}</span></div>`;
+      }
+      h+='</section>';
+    }
+    this.innerHTML=h;
+  }
+}
+customElements.define('pca-metrics',PcaMetrics);
+
+/* =========================================================
+   Aplikacja
+   ========================================================= */
+const state={dsId:'iris',step:0,k:2,standardize:true,residuals:true,autoRotate:true,table:false,playing:false};
+const lib=document.getElementById('lib'),stage=document.getElementById('stage'),ctl=document.getElementById('ctl'),met=document.getElementById('met');
+const drawer=document.getElementById('drawer'),dtable=document.getElementById('dtable');
+let res=null,resKey='';
+
+function buildScene(ds,r,st){
+  const s=st.step,k=st.k,b=boxDisplay(ds),S=r.S;
+  let pts;
+  if(s===0)pts=ds.rows.map(x=>x.map((v,j)=>(v-b[j].mid)/b[j].half));
+  else if(s===1)pts=ds.rows.map(x=>x.map((v,j)=>(v-r.mean[j])/b[j].half));
+  else pts=r.Z.map(z=>z.map(v=>v/S));
+  const orig=pts.map(p=>p.slice());
+  if(s===5)pts=r.Z.map((z,i)=>projectZ(r,i,k).map(v=>v/S));
+  const mean=s===0?r.mean.map((m,j)=>(m-b[j].mid)/b[j].half):[0,0,0];
+  const pc=r.vecs.map((v,c)=>v.map(x=>x*2*Math.sqrt(r.vals[c])/S));
+  const u=r.vecs[0].map(x=>x*2.6*Math.sqrt(r.vals[0])/S);
+  const v=k===2?r.vecs[1].map(x=>x*2.6*Math.sqrt(r.vals[1])/S):[0,0,0];
+  const on=s>=4?1:0;
+  const a=[s===0?1:0,s<=1?1:0,on,s===5&&k<2?on*.25:on,s===5?on*.25:on,s===5?1:0,s===5&&st.residuals?1:0];
+  const axes=ds.features.map((f,j)=>{
+    const name=`${f.short} [${f.unit}]`;
+    if(s===0)return {name,plus:fmtA(b[j].mid+b[j].half),minus:fmtA(b[j].mid-b[j].half)};
+    if(s===1)return {name,plus:fmtS(b[j].half),minus:fmtS(-b[j].half)};
+    if(r.standardize)return {name:f.short+' [σ]',plus:fmtS(S)+'σ',minus:fmtS(-S)+'σ'};
+    return {name,plus:fmtS(S),minus:fmtS(-S)};
+  });
+  return {pts,orig,mean,pc,u,v,a,cls:ds.cls,meta:{name:ds.name,step:s,stepName:stepName(s,st.standardize),classNames:ds.classNames,axes}};
+}
+
+function renderTable(ds,r,st){
+  document.getElementById('drawer-title').textContent='Tabela danych · '+ds.name;
+  const proj=st.step===5,k=st.k,rc=proj?recon(r,k):null;
+  let h=`<thead><tr><th class="l">#</th><th class="l">Klasa</th>${ds.features.map(f=>`<th>${f.name} [${f.unit}]</th>`).join('')}`;
+  if(proj){for(let c=0;c<k;c++)h+=`<th class="pc">PC${c+1}</th>`;h+=`<th>Błąd rekonstrukcji</th>`;}
+  h+='</tr></thead><tbody>';
+  ds.rows.forEach((row,i)=>{
+    h+=`<tr data-i="${i}"><td class="l">${i+1}</td><td class="l cls">${ds.classNames[ds.cls[i]]}</td>${row.map((v,j)=>`<td>${fmt(v,ds.dec[j])}</td>`).join('')}`;
+    if(proj){for(let c=0;c<k;c++)h+=`<td>${fmt(r.scores[i][c],3)}</td>`;h+=`<td>${fmt(rc.errs[i],3)}</td>`;}
+    h+='</tr>';
+  });
+  dtable.innerHTML=h+'</tbody>';
+}
+dtable.addEventListener('pointerover',e=>{const tr=e.target.closest('tr[data-i]');stage.highlight=tr?+tr.dataset.i:-1;stage.drawInset();});
+dtable.addEventListener('pointerleave',()=>{stage.highlight=-1;stage.drawInset();});
+
+let playTimer=null;
+function update(patch={},fresh=false){
+  Object.assign(state,patch);
+  const ds=byId(state.dsId);
+  const key=state.dsId+'|'+state.standardize;
+  if(key!==resKey){res=pcaCompute(ds,state.standardize);resKey=key;}
+  lib.active=state.dsId;
+  ctl.state={...state};
+  stage.autoRotate=state.autoRotate;
+  stage.setScene(buildScene(ds,res,state),fresh);
+  if(state.step===5){
+    const k=state.k;
+    stage.setInset({k,scores:res.scores,cls:ds.cls,nCls:ds.classNames.length,title:k===2?'Rzut 2D · PC1 × PC2':'Rzut 1D · PC1',sub:k===2?`${fmt((res.ratio[0]+res.ratio[1])*100,1)} % wariancji`:`${fmt(res.ratio[0]*100,1)} % wariancji`});
+  }else stage.setInset(null);
+  met.update(ds,res,state);
+  drawer.hidden=!state.table;
+  if(state.table)renderTable(ds,res,state);
+  clearTimeout(playTimer);
+  if(state.playing){
+    if(state.step<5)playTimer=setTimeout(()=>update({step:state.step+1}),2400);
+    else{state.playing=false;ctl.state={...state};}
+  }
+}
+
+document.addEventListener('pca-change',e=>update(e.detail));
+document.addEventListener('reset-view',()=>stage.resetView());
+document.addEventListener('dataset-drop',e=>{if(e.detail.id!==state.dsId)update({dsId:e.detail.id,step:0,playing:false},true);});
+document.getElementById('drawer-close').addEventListener('click',()=>update({table:false}));
+document.addEventListener('keydown',e=>{
+  if(e.target.closest('input,textarea,select'))return;
+  if(e.target.closest('.ds-card')&&(e.key==='Enter'||e.key===' '))return;
+  const k=e.key;
+  if(k==='ArrowRight'||k==='PageDown'){e.preventDefault();update({step:Math.min(5,state.step+1),playing:false});}
+  else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();update({step:Math.max(0,state.step-1),playing:false});}
+  else if(k==='1'||k==='2')update({k:+k,step:5});
+  else if(k==='t'||k==='T')update({table:!state.table});
+  else if(k==='Escape'&&state.table)update({table:false});
+});
+
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readTheme);
+new MutationObserver(readTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+lib.datasets=DATASETS;
+update({},true);
+if(document.fonts)document.fonts.ready.then(()=>{lib.drawThumbs();stage.drawInset();});
+</script>
+
+</body>
+</html>
