@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Od prostej do SSN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+body{margin:0}
+
+/* Layout: laboratorium — duża kwadratowa plansza po lewej, pulpit z przyrządami po prawej */
+:root{
+  --bg:#E8ECF0; --panel:#FFFFFF; --ink:#15202B; --muted:#5A6672; --line:#D2D9E0;
+  --accent:#2350D8; --accent-ink:#FFFFFF; --plot:#FAFBFC; --neg:#D6336C;
+  --c0:#E4572E; --c1:#11928F; --c2:#DE961A; --c3:#7350C8;
+  --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1318; --panel:#161C23; --ink:#E6EBF0; --muted:#8F9CA9; --line:#28313B;
+    --accent:#7D9BFF; --accent-ink:#0E1318; --plot:#11171D; --neg:#FF6B9A;
+    --c0:#FF7650; --c1:#2CC4C0; --c2:#F4B545; --c3:#A285F2; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1318; --panel:#161C23; --ink:#E6EBF0; --muted:#8F9CA9; --line:#28313B;
+  --accent:#7D9BFF; --accent-ink:#0E1318; --plot:#11171D; --neg:#FF6B9A;
+  --c0:#FF7650; --c1:#2CC4C0; --c2:#F4B545; --c3:#A285F2; color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.4}
+.app{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 20px;max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:center;gap:8px 20px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:700;font-size:20px;letter-spacing:-.01em;white-space:nowrap}
+.brand b{color:var(--accent)}
+.tabs{display:flex;gap:4px;overflow-x:auto;min-width:0;flex:1;padding:2px}
+.tab{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--muted);font:500 14px var(--f-body);padding:7px 12px 7px 7px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.tab .n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1.5px solid currentColor;font:500 12px var(--f-mono)}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+.tab[aria-selected="true"] .n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+.stagewrap{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0}
+.formula{font:500 17px var(--f-mono);align-self:stretch;text-align:center;white-space:nowrap;overflow-x:auto;padding:4px 0;min-height:32px}
+.stage{position:relative;width:clamp(min(100%,300px),calc(100dvh - 170px),100%);max-width:100%;aspect-ratio:1/1;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+#plot,#gl{position:absolute;inset:0;display:block;width:100%;height:100%}
+#plot{touch-action:none;cursor:crosshair}
+.stage.rot #plot{cursor:grab}
+.eq{position:absolute;top:22px;left:50px;font:500 17px var(--f-mono);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 10px;pointer-events:none;font-variant-numeric:tabular-nums}
+.tip{position:absolute;width:150px;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 8px;display:grid;gap:4px;box-shadow:0 4px 16px rgba(0,0,0,.12);font:500 12px var(--f-mono);font-variant-numeric:tabular-nums}
+.tr{display:grid;grid-template-columns:10px 1fr 36px;align-items:center;gap:6px}
+.tr i{width:10px;height:10px;border-radius:50%}
+.tr .bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.tr .bar span{display:block;height:100%}
+.tr b{text-align:right;font-weight:500}
+.hint{font-size:12px;color:var(--muted);text-align:center}
+.hint kbd{font:500 11px var(--f-mono);border:1px solid var(--line);border-radius:4px;padding:0 4px;background:var(--panel)}
+.rack{display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px}
+.ph{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+button{font-family:var(--f-body)}
+.btn{font-size:14px;font-weight:500;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.trainrow{display:grid;grid-template-columns:1fr auto auto;gap:6px}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.metrics > div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lbl{font-size:12px;color:var(--muted)}
+.val{font:500 19px var(--f-mono);font-variant-numeric:tabular-nums}
+.cv{display:block;width:100%}
+#spark{height:46px}
+#netc{height:150px}
+.arch{font:500 13px var(--f-mono);color:var(--muted);text-align:center}
+.seg{display:flex;flex-wrap:wrap;gap:4px}
+.s{font-size:13px;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);cursor:pointer}
+.s:hover{border-color:var(--muted)}
+.s[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.chips{display:flex;gap:8px}
+.chip{width:26px;height:26px;border-radius:50%;border:2px solid var(--panel);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.chip[aria-pressed="true"]{box-shadow:0 0 0 2px var(--ink)}
+.sl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+.sl output{font:500 13px var(--f-mono);font-variant-numeric:tabular-nums}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:0}
+.toggles{display:flex;flex-wrap:wrap;gap:4px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Kroki"></nav>
+  </header>
+
+  <main class="main">
+    <section class="stagewrap">
+      <div class="formula" id="formula"></div>
+      <div class="stage" id="stage">
+        <canvas id="gl" hidden></canvas>
+        <canvas id="plot"></canvas>
+        <div class="eq" id="eq" hidden></div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+    </section>
+
+    <aside class="rack">
+      <div class="panel">
+        <div class="trainrow">
+          <button class="btn primary" id="btnRun" type="button">▶ Trenuj</button>
+          <button class="btn" id="btnStep" type="button" title="Jedna epoka">+1</button>
+          <button class="btn" id="btnReset" type="button" title="Losowe wagi">⟲ Reset</button>
+        </div>
+        <div class="metrics">
+          <div><span class="lbl">Epoka</span><span class="val" id="mEpoch">0</span></div>
+          <div><span class="lbl" id="mLossLbl">Strata</span><span class="val" id="mLoss">–</span></div>
+          <div id="mAccWrap"><span class="lbl">Trafność</span><span class="val" id="mAcc">–</span></div>
+        </div>
+        <canvas class="cv" id="spark"></canvas>
+        <label class="sl"><span class="lbl">Tempo uczenia η</span><output id="oLr"></output><input type="range" id="iLr" min="0" max="100" step="1"></label>
+        <label class="sl"><span class="lbl">Epoki na klatkę</span><output id="oSpeed"></output><input type="range" id="iSpeed" min="1" max="40" step="1"></label>
+      </div>
+
+      <div class="panel">
+        <div class="ph">Model</div>
+        <canvas class="cv" id="netc"></canvas>
+        <div class="arch" id="arch"></div>
+        <div id="pManual" class="rack">
+          <label class="sl"><span class="lbl">w</span><output id="oW"></output><input type="range" id="iW" min="-2" max="2" step="0.01"></label>
+          <label class="sl"><span class="lbl">b</span><output id="oB"></output><input type="range" id="iB" min="-5" max="15" step="0.05"></label>
+        </div>
+        <div id="pArch" class="rack">
+          <div class="row"><span class="lbl">Warstwy ukryte</span><div class="seg" id="segLayers"></div></div>
+          <label class="sl"><span class="lbl">Neurony w warstwie</span><output id="oNeur"></output><input type="range" id="iNeur" min="1" max="16" step="1"></label>
+          <div class="row"><span class="lbl">Aktywacja</span><div class="seg" id="segAct"></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">Dane</div>
+        <div class="seg" id="segData"></div>
+        <div class="row" id="rowK"><span class="lbl">Klasy</span><div class="seg" id="segK"></div></div>
+        <div class="row" id="rowAdd"><span class="lbl">Klasa nowego punktu</span><div class="chips" id="chips"></div></div>
+        <label class="sl"><span class="lbl">Szum</span><output id="oNoise"></output><input type="range" id="iNoise" min="0" max="1" step="0.05"></label>
+        <button class="btn" id="btnData" type="button">Nowe dane</button>
+      </div>
+
+      <div class="panel" id="pView">
+        <div class="ph">Widok</div>
+        <div class="toggles" id="toggles"></div>
+        <label class="sl" id="rowOp"><span class="lbl">Krycie obszarów</span><output id="oOp"></output><input type="range" id="iOp" min="0.05" max="0.8" step="0.05"></label>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+let needRender=true, G3=null;
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+function randn(){ let u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+const SUB = ['₀','₁','₂','₃','₄','₅'];
+
+/* ---------------- sieć (MLP + Adam) ---------------- */
+function Net(sizes, act, out){
+  this.sizes=sizes; this.act=act; this.out=out; this.L=sizes.length-1; this.t=0;
+  this.W=[]; this.b=[]; this.mW=[]; this.vW=[]; this.mb=[]; this.vb=[]; this.gW=[]; this.gb=[];
+  for(let l=0;l<this.L;l++){
+    const nIn=sizes[l], nOut=sizes[l+1];
+    const W=new Float64Array(nIn*nOut);
+    const s=(act==='relu' && l<this.L-1) ? Math.sqrt(2/nIn) : Math.sqrt(1/nIn);
+    for(let i=0;i<W.length;i++) W[i]=randn()*s;
+    const b=new Float64Array(nOut); if(act==='relu' && l<this.L-1) b.fill(0.05);
+    this.W.push(W); this.b.push(b);
+    this.mW.push(new Float64Array(W.length)); this.vW.push(new Float64Array(W.length)); this.gW.push(new Float64Array(W.length));
+    this.mb.push(new Float64Array(nOut)); this.vb.push(new Float64Array(nOut)); this.gb.push(new Float64Array(nOut));
+  }
+  this.a=sizes.map(n=>new Float64Array(n)); this.d=sizes.map(n=>new Float64Array(n));
+}
+Net.prototype.forward=function(x){
+  const a=this.a, L=this.L;
+  for(let i=0;i<this.sizes[0];i++) a[0][i]=x[i];
+  for(let l=0;l<L;l++){
+    const nIn=this.sizes[l], nOut=this.sizes[l+1], W=this.W[l], b=this.b[l], A=a[l], Z=a[l+1];
+    for(let o=0;o<nOut;o++){ let s=b[o]; const off=o*nIn; for(let i=0;i<nIn;i++) s+=W[off+i]*A[i]; Z[o]=s; }
+    if(l<L-1){
+      if(this.act==='relu') for(let o=0;o<nOut;o++) Z[o]=Z[o]>0?Z[o]:0;
+      else for(let o=0;o<nOut;o++) Z[o]=Math.tanh(Z[o]);
+    } else if(this.out==='sigmoid'){ Z[0]=1/(1+Math.exp(-Z[0])); }
+    else if(this.out==='softmax'){
+      let m=-Infinity; for(let o=0;o<nOut;o++) if(Z[o]>m) m=Z[o];
+      let s=0; for(let o=0;o<nOut;o++){ Z[o]=Math.exp(Z[o]-m); s+=Z[o]; }
+      for(let o=0;o<nOut;o++) Z[o]/=s;
+    }
+  }
+  return a[L];
+};
+Net.prototype.epoch=function(X,T,lr,update){
+  const L=this.L, N=X.length; let loss=0, correct=0;
+  if(update) for(let l=0;l<L;l++){ this.gW[l].fill(0); this.gb[l].fill(0); }
+  for(let n=0;n<N;n++){
+    const y=this.forward(X[n]), D=this.d[L], t=T[n];
+    if(this.out==='linear'){ const e=y[0]-t; D[0]=e; loss+=e*e; }
+    else if(this.out==='sigmoid'){ const p=y[0]; D[0]=p-t; loss-=t?Math.log(Math.max(p,1e-12)):Math.log(Math.max(1-p,1e-12)); if((p>0.5?1:0)===t) correct++; }
+    else { let km=0; for(let k=0;k<y.length;k++){ D[k]=y[k]-(k===t?1:0); if(y[k]>y[km]) km=k; } loss-=Math.log(Math.max(y[t],1e-12)); if(km===t) correct++; }
+    if(!update) continue;
+    for(let l=L-1;l>=0;l--){
+      const nIn=this.sizes[l], nOut=this.sizes[l+1], A=this.a[l], Dn=this.d[l+1], W=this.W[l], gW=this.gW[l], gb=this.gb[l];
+      for(let o=0;o<nOut;o++){ const g=Dn[o]; gb[o]+=g; const off=o*nIn; for(let i=0;i<nIn;i++) gW[off+i]+=g*A[i]; }
+      if(l>0){
+        const Dl=this.d[l];
+        for(let i=0;i<nIn;i++){ let s=0; for(let o=0;o<nOut;o++) s+=W[o*nIn+i]*Dn[o]; const ai=A[i]; Dl[i]=s*(this.act==='relu'?(ai>0?1:0):(1-ai*ai)); }
+      }
+    }
+  }
+  if(update && N){
+    this.t++; const b1=0.9,b2=0.999,c1=1-Math.pow(b1,this.t),c2=1-Math.pow(b2,this.t);
+    const upd=(P,G,M,V)=>{ for(let i=0;i<P.length;i++){ const g=G[i]/N; M[i]=b1*M[i]+(1-b1)*g; V[i]=b2*V[i]+(1-b2)*g*g; P[i]-=lr*(M[i]/c1)/(Math.sqrt(V[i]/c2)+1e-8); } };
+    for(let l=0;l<L;l++){ upd(this.W[l],this.gW[l],this.mW[l],this.vW[l]); upd(this.b[l],this.gb[l],this.mb[l],this.vb[l]); }
+  }
+  return {loss: N?loss/N:NaN, acc: N?correct/N:NaN};
+};
+function classify(net,x){ const y=net.forward(x); if(net.out==='sigmoid') return y[0]>0.5?1:0; let km=0; for(let k=1;k<y.length;k++) if(y[k]>y[km]) km=k; return km; }
+function probs(net,x){ const y=net.forward(x); return net.out==='sigmoid' ? [1-y[0], y[0]] : Array.from(y); }
+
+/* ---------------- kroki ---------------- */
+const STEPS=[
+  {n:1,name:'Regresja liniowa',kind:'reg'},
+  {n:2,name:'Regresja logistyczna',kind:'cls',dim:2,hidden:false,fixedK:true},
+  {n:3,name:'Sieć neuronowa',kind:'cls',dim:2,hidden:true,fixedK:true},
+  {n:4,name:'SSN + softmax',kind:'cls',dim:2,hidden:true},
+  {n:5,name:'SSN + softmax w 3D',kind:'cls',dim:3,hidden:true},
+];
+const DEF=[
+  {dataset:'line',noise:0.35,lr:0.02,speed:1,showSq:true},
+  {dataset:'blobs',noise:0.3,lr:0.05,speed:2,K:2},
+  {dataset:'circle',noise:0.25,lr:0.03,speed:4,K:2,layers:1,neurons:6,act:'tanh'},
+  {dataset:'spiral',noise:0.2,lr:0.02,speed:6,K:3,layers:2,neurons:12,act:'tanh'},
+  {dataset:'blobs',noise:0.3,lr:0.02,speed:4,K:4,layers:2,neurons:10,act:'tanh',showVox:true,showPts:true,rotate:!matchMedia('(prefers-reduced-motion: reduce)').matches,opacity:0.3},
+];
+const DATASETS={
+  reg:[['line','Liniowe'],['curve','Krzywe']],
+  cls2:[['blobs','Grupy'],['circle','Pierścienie'],['xor','XOR'],['spiral','Spirala']],
+  cls3:[['blobs','Grupy'],['shells','Sfery'],['helix','Helisy']],
+};
+const DOM2=[-1.05,1.05];
+
+function gen2(type,K,nz){
+  const pts=[]; const per=type==='spiral'?90:70;
+  if(type==='xor'){
+    for(let n=0;n<per*K;n++){
+      let x,y; do{ x=Math.random()*1.9-0.95; y=Math.random()*1.9-0.95; }while(Math.abs(x)<0.07||Math.abs(y)<0.07);
+      let c; if(K===2) c=(x>0)===(y>0)?0:1; else { const q=(x>0?1:0)+(y>0?2:0); c=K===4?q:[0,1,2,0][q]; }
+      pts.push({p:[clamp(x+randn()*nz*0.07,-1,1),clamp(y+randn()*nz*0.07,-1,1)],c});
+    }
+    return pts;
+  }
+  for(let k=0;k<K;k++) for(let i=0;i<per;i++){
+    let x,y;
+    if(type==='blobs'){ const ang=2*Math.PI*k/K+(K===2?Math.PI/4:Math.PI/2); const s=0.09+nz*0.22; x=0.5*Math.cos(ang)+randn()*s; y=0.5*Math.sin(ang)+randn()*s; }
+    else if(type==='circle'){ const r=(k+0.15+0.6*Math.random())/K*0.95+randn()*nz*0.07; const th=Math.random()*2*Math.PI; x=r*Math.cos(th); y=r*Math.sin(th); }
+    else { const t=Math.random(); const r=0.06+0.88*t; const th=2*Math.PI*k/K+t*5.2+randn()*nz*0.3; x=r*Math.cos(th); y=r*Math.sin(th); }
+    pts.push({p:[clamp(x,-1,1),clamp(y,-1,1)],c:k});
+  }
+  return pts;
+}
+function gen3(type,K,nz){
+  const pts=[]; const per=80;
+  const V=[[1,1,1],[1,-1,-1],[-1,1,-1],[-1,-1,1]];
+  for(let k=0;k<K;k++) for(let i=0;i<per;i++){
+    let p;
+    if(type==='blobs'){ const s=0.09+nz*0.2; p=V[k].map(v=>v*0.48+randn()*s); }
+    else if(type==='shells'){ let d=[randn(),randn(),randn()]; const m=Math.hypot(...d)||1; const r=(k+0.2+0.55*Math.random())/K*0.95+randn()*nz*0.06; p=d.map(v=>v/m*r); }
+    else { const t=Math.random(); const th=2*Math.PI*k/K+t*2*Math.PI*1.25; const r=0.6+randn()*nz*0.1; p=[r*Math.cos(th),r*Math.sin(th),-0.9+1.8*t+randn()*nz*0.05]; }
+    pts.push({p:p.map(v=>clamp(v,-1,1)),c:k});
+  }
+  return pts;
+}
+function genData(st){
+  const c=st.cfg, nz=st.noise;
+  if(c.kind==='reg'){
+    const pts=[]; const slope=0.35+Math.random()*0.55, icpt=1+Math.random()*2.2;
+    for(let i=0;i<24;i++){
+      const x=0.5+9*Math.random();
+      const y=st.dataset==='line' ? slope*x+icpt+randn()*nz*2.2 : 8.2-0.3*(x-5)*(x-5)+randn()*nz*1.6;
+      pts.push({x,y:clamp(y,0.2,9.8)});
+    }
+    st.pts=pts;
+  } else st.pts = c.dim===2 ? gen2(st.dataset,st.K,nz) : gen3(st.dataset,st.K,nz);
+  dataChanged(st);
+}
+function buildNet(st){
+  const c=st.cfg;
+  if(c.kind==='reg'){ st.net=new Net([1,1],'tanh','linear'); st.net.W[0][0]=randn()*0.5; st.net.b[0][0]=randn()*0.4; }
+  else {
+    const sizes=[c.dim]; if(c.hidden) for(let l=0;l<st.layers;l++) sizes.push(st.neurons);
+    const out=c.n<=3?'sigmoid':'softmax'; sizes.push(out==='sigmoid'?1:st.K);
+    st.net=new Net(sizes, st.act||'tanh', out);
+  }
+  st.epoch=0; st.hist=[]; st.netDirty=true; evaluate(st);
+}
+function dataChanged(st){ st.bX=null; st.netDirty=true; st.ptsDirty=true; if(st.net) evaluate(st); needRender=true; }
+function batch(st){
+  if(!st.bX){
+    if(st.cfg.kind==='reg'){ st.bX=st.pts.map(p=>[(p.x-5)/5]); st.bT=st.pts.map(p=>(p.y-5)/5); }
+    else { st.bX=st.pts.map(p=>p.p); st.bT=st.pts.map(p=>p.c); }
+  }
+  return {X:st.bX,T:st.bT};
+}
+function evaluate(st){ const {X,T}=batch(st); const r=st.net.epoch(X,T,0,false); st.loss=r.loss; st.acc=r.acc; }
+function trainStep(st){
+  const {X,T}=batch(st); if(!X.length) return;
+  const r=st.net.epoch(X,T,st.lr,true); st.loss=r.loss; st.acc=r.acc; st.epoch++;
+  st.hist.push(r.loss); if(st.hist.length>800) st.hist=st.hist.filter((_,i)=>i%2===0);
+  st.netDirty=true;
+}
+
+const S=STEPS.map((cfg,i)=>{ const st=Object.assign({cfg,running:false,epoch:0,hist:[],selClass:0,yaw:0.75,pitch:0.42},DEF[i]); genData(st); buildNet(st); return st; });
+let curIdx=0; const cur=()=>S[curIdx];
+
+/* ---------------- kolory z motywu ---------------- */
+let C={};
+function hexToRgb(h){ h=h.replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rgba(h,a){ const [r,g,b]=hexToRgb(h); return `rgba(${r},${g},${b},${a})`; }
+function readColors(){
+  const cs=getComputedStyle(document.documentElement);
+  for(const k of ['bg','panel','ink','muted','line','accent','plot','neg','c0','c1','c2','c3']) C[k]=cs.getPropertyValue('--'+k).trim();
+  C.cls=[C.c0,C.c1,C.c2,C.c3]; C.clsRGB=C.cls.map(hexToRgb); C.mono=cs.getPropertyValue('--f-mono').trim();
+  S.forEach(s=>s.netDirty=true); if(G3){ G3.owner=null; g3Colors(); } needRender=true;
+}
+readColors();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',readColors);
+new MutationObserver(readColors).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(document.fonts) document.fonts.ready.then(()=>{needRender=true;});
+
+/* ---------------- płótna ---------------- */
+const plot=$('plot'), pctx=plot.getContext('2d'); let PS=600;
+const netc=$('netc'), nctx=netc.getContext('2d'); let NW=300, NH=150;
+const spark=$('spark'), sctx=spark.getContext('2d'); let SW=300, SH=46;
+function fit(cv,ctx,cb){ new ResizeObserver(()=>{ const r=cv.getBoundingClientRect(); const d=window.devicePixelRatio||1; cv.width=Math.max(1,Math.round(r.width*d)); cv.height=Math.max(1,Math.round(r.height*d)); ctx.setTransform(d,0,0,d,0,0); cb(r.width,r.height); needRender=true; }).observe(cv); }
+fit(plot,pctx,(w)=>{PS=w;});
+fit(netc,nctx,(w,h)=>{NW=w;NH=h;});
+fit(spark,sctx,(w,h)=>{SW=w;SH=h;});
+
+function geom(){ return {x0:40,y0:14,w:PS-54,h:PS-54}; }
+function domain(st){ return st.cfg.kind==='reg'?[0,10]:DOM2; }
+function toScreen(st,x,y){ const g=geom(),[a,b]=domain(st); return [g.x0+(x-a)/(b-a)*g.w, g.y0+g.h-(y-a)/(b-a)*g.h]; }
+function toWorld(st,px,py){ const g=geom(),[a,b]=domain(st); return [a+(px-g.x0)/g.w*(b-a), a+(g.y0+g.h-py)/g.h*(b-a)]; }
+
+/* ---------------- 2D: pole klasyfikacji ---------------- */
+const FG=90; const fieldCv=document.createElement('canvas'); fieldCv.width=fieldCv.height=FG; const fctx=fieldCv.getContext('2d'); const fimg=fctx.createImageData(FG,FG);
+function computeField(st){
+  const net=st.net, K=st.K, bin=net.out==='sigmoid', bg=hexToRgb(C.plot), cols=C.clsRGB, data=fimg.data;
+  const nD=bin?1:K; if(!st.field||st.field.length!==nD) st.field=Array.from({length:nD},()=>new Float32Array(FG*FG));
+  const D=st.field, [a,b]=DOM2, x=[0,0];
+  for(let j=0;j<FG;j++){ x[1]=b-j/(FG-1)*(b-a);
+    for(let i=0;i<FG;i++){ x[0]=a+i/(FG-1)*(b-a);
+      const y=net.forward(x); const p=bin?[1-y[0],y[0]]:y;
+      let r=0,g=0,bl=0,pm=0;
+      for(let k=0;k<K;k++){ r+=p[k]*cols[k][0]; g+=p[k]*cols[k][1]; bl+=p[k]*cols[k][2]; if(p[k]>pm) pm=p[k]; }
+      const conf=(pm-1/K)/(1-1/K), al=0.18+0.44*conf, o=(j*FG+i)*4;
+      data[o]=bg[0]*(1-al)+r*al; data[o+1]=bg[1]*(1-al)+g*al; data[o+2]=bg[2]*(1-al)+bl*al; data[o+3]=255;
+      const idx=j*FG+i;
+      if(bin) D[0][idx]=p[1]-p[0];
+      else for(let k=0;k<K;k++){ let mo=-1; for(let q=0;q<K;q++) if(q!==k&&p[q]>mo) mo=p[q]; D[k][idx]=p[k]-mo; }
+    }
+  }
+  fctx.putImageData(fimg,0,0);
+}
+function contour(F,G,seg){
+  for(let j=0;j<G-1;j++) for(let i=0;i<G-1;i++){
+    const v=[F[j*G+i],F[j*G+i+1],F[(j+1)*G+i+1],F[(j+1)*G+i]];
+    const P=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]]; const pts=[];
+    for(let e=0;e<4;e++){ const a=v[e], b=v[(e+1)%4]; if((a>0)!==(b>0)){ const t=a/(a-b); const A=P[e],B=P[(e+1)%4]; pts.push([A[0]+(B[0]-A[0])*t, A[1]+(B[1]-A[1])*t]); } }
+    if(pts.length>=2) seg(pts[0],pts[1]); if(pts.length===4) seg(pts[2],pts[3]);
+  }
+}
+
+function drawFrame2D(st,ticks,labels){
+  const ctx=pctx,g=geom();
+  ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.strokeRect(g.x0+0.5,g.y0+0.5,g.w-1,g.h-1);
+  ctx.fillStyle=C.muted; ctx.font=`12px ${C.mono}`;
+  ctx.textAlign='center'; for(const v of ticks){ const [sx]=toScreen(st,v,0); ctx.fillText(String(v),sx,g.y0+g.h+16); }
+  ctx.textAlign='right'; for(const v of ticks){ const [,sy]=toScreen(st,0,v); ctx.fillText(String(v),g.x0-7,sy+4); }
+  ctx.font=`italic 14px ${C.mono}`; ctx.fillStyle=C.ink; ctx.textAlign='center';
+  ctx.fillText(labels[0],g.x0+g.w/2,g.y0+g.h+34);
+  ctx.save(); ctx.translate(13,g.y0+g.h/2); ctx.rotate(-Math.PI/2); ctx.fillText(labels[1],0,0); ctx.restore();
+}
+
+function renderCls2(st){
+  const ctx=pctx,g=geom();
+  ctx.fillStyle=C.panel; ctx.fillRect(0,0,PS,PS);
+  if(st.netDirty||!st.field){ computeField(st); st.netDirty=false; }
+  const pw=g.w/(FG-1), ph=g.h/(FG-1);
+  ctx.save(); ctx.beginPath(); ctx.rect(g.x0,g.y0,g.w,g.h); ctx.clip();
+  ctx.imageSmoothingEnabled=true; ctx.drawImage(fieldCv,g.x0-pw/2,g.y0-ph/2,g.w+pw,g.h+ph);
+  ctx.strokeStyle=rgba(C.ink,0.07); ctx.lineWidth=1; ctx.beginPath();
+  for(const v of [-1,-0.5,0,0.5,1]){ const [sx,sy]=toScreen(st,v,v); ctx.moveTo(sx,g.y0); ctx.lineTo(sx,g.y0+g.h); ctx.moveTo(g.x0,sy); ctx.lineTo(g.x0+g.w,sy); }
+  ctx.stroke();
+  ctx.strokeStyle=rgba(C.ink,0.85); ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.beginPath();
+  for(const F of st.field) contour(F,FG,(A,B)=>{ ctx.moveTo(g.x0+A[0]*pw,g.y0+A[1]*ph); ctx.lineTo(g.x0+B[0]*pw,g.y0+B[1]*ph); });
+  ctx.stroke(); ctx.restore();
+  drawFrame2D(st,[-1,0,1],['x₁','x₂']);
+  const r=Math.max(4,PS/125);
+  for(const p of st.pts){
+    const [sx,sy]=toScreen(st,p.p[0],p.p[1]); const bad=classify(st.net,p.p)!==p.c;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fillStyle=C.cls[p.c]; ctx.fill();
+    ctx.lineWidth=bad?2.4:1.4; ctx.strokeStyle=bad?C.ink:C.plot; ctx.stroke();
+  }
+  if(hover&&!drag&&inPlot(hover.px,hover.py)){ ctx.beginPath(); ctx.arc(hover.px,hover.py,7,0,Math.PI*2); ctx.lineWidth=1.5; ctx.strokeStyle=C.ink; ctx.stroke(); }
+  updateTip(st);
+}
+
+/* ---------------- 1: regresja ---------------- */
+function regParams(st){ const w=st.net.W[0][0]; return {w, b:5-5*w+5*st.net.b[0][0]}; }
+function setRegParams(st,w,b){ st.net.W[0][0]=w; st.net.b[0][0]=(b-5+5*w)/5; evaluate(st); needRender=true; }
+function renderReg(st){
+  const ctx=pctx,g=geom(),unit=g.w/10;
+  ctx.fillStyle=C.panel; ctx.fillRect(0,0,PS,PS);
+  ctx.fillStyle=C.plot; ctx.fillRect(g.x0,g.y0,g.w,g.h);
+  ctx.lineWidth=1;
+  for(let v=0;v<=10;v++){ const [sx,sy]=toScreen(st,v,v); ctx.strokeStyle=rgba(C.ink,v%2?0.04:0.09); ctx.beginPath(); ctx.moveTo(sx,g.y0); ctx.lineTo(sx,g.y0+g.h); ctx.moveTo(g.x0,sy); ctx.lineTo(g.x0+g.w,sy); ctx.stroke(); }
+  const {w,b}=regParams(st), pred=x=>w*x+b;
+  ctx.save(); ctx.beginPath(); ctx.rect(g.x0,g.y0,g.w,g.h); ctx.clip();
+  for(const p of st.pts){
+    const yh=pred(p.x), [sx,sy]=toScreen(st,p.x,p.y), [,sh]=toScreen(st,p.x,yh);
+    if(st.showSq){ const side=Math.abs(p.y-yh)*unit; const left=sx+side>g.x0+g.w?sx-side:sx; const top=Math.min(sy,sh);
+      ctx.fillStyle=rgba(C.c0,0.12); ctx.fillRect(left,top,side,side); ctx.strokeStyle=rgba(C.c0,0.45); ctx.lineWidth=1; ctx.strokeRect(left,top,side,side); }
+    ctx.strokeStyle=C.c0; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx,sh); ctx.stroke();
+  }
+  const [ax,ay]=toScreen(st,-1,pred(-1)), [bx,by]=toScreen(st,11,pred(11));
+  ctx.strokeStyle=C.accent; ctx.lineWidth=3.2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+  ctx.restore();
+  drawFrame2D(st,[0,2,4,6,8,10],['x','y']);
+  const r=Math.max(4.5,PS/115);
+  for(const p of st.pts){ const [sx,sy]=toScreen(st,p.x,p.y); ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2); ctx.fillStyle=C.ink; ctx.fill(); ctx.lineWidth=2; ctx.strokeStyle=C.plot; ctx.stroke(); }
+  $('eq').textContent=`ŷ = ${w.toFixed(2)}·x ${b<0?'−':'+'} ${Math.abs(b).toFixed(2)}`;
+  if(document.activeElement!==$('iW')){ $('iW').value=w; } if(document.activeElement!==$('iB')){ $('iB').value=b; }
+  $('oW').textContent=w.toFixed(2); $('oB').textContent=b.toFixed(2);
+}
+
+/* ---------------- 5: 3D (three.js + marching tetrahedra) ---------------- */
+const GN=26, GM=GN+2, GM2=GM*GM, GM3=GM2*GM, GH=2/(GN-1);
+const GC=new Float32Array(GM); for(let i=0;i<GM;i++) GC[i]=-1+(i-1)*GH;
+const CO=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+const COFF=CO.map(([a,b,c])=>a+b*GM+c*GM2);
+const TETS=[[0,5,1,6],[0,1,2,6],[0,2,3,6],[0,3,7,6],[0,7,4,6],[0,4,5,6]];
+const LBL3=[[[1.28,-1,1],'x₁'],[[-1,-1,-1.28],'x₂'],[[-1,1.28,1],'x₃']];
+function regionMat(T){
+  return new T.ShaderMaterial({
+    uniforms:{uColor:{value:new T.Color()},uOp:{value:0.35}},
+    transparent:true, depthWrite:false, side:T.DoubleSide,
+    vertexShader:'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
+    fragmentShader:'uniform vec3 uColor; uniform float uOp; varying vec3 vN; varying vec3 vV; void main(){ vec3 n=normalize(vN); float f=1.0-abs(dot(n,normalize(vV))); float l=0.72+0.28*abs(dot(n,normalize(vec3(0.4,0.75,0.55)))); float a=clamp(uOp*0.55+pow(f,2.2)*0.8,0.0,0.95); gl_FragColor=vec4(uColor*l,a); }'
+  });
+}
+function g3Colors(){
+  if(!G3) return;
+  G3.renderer.setClearColor(C.plot,1);
+  G3.box.material.color.set(C.ink); G3.axes.material.color.set(C.ink);
+  G3.meshes.forEach((m,k)=>m.material.uniforms.uColor.value.set(C.cls[k]));
+  S.forEach(s=>s.ptsDirty=true);
+}
+function initGL(){
+  if(G3) return G3; if(!window.THREE) return null;
+  const T=THREE;
+  let renderer; try{ renderer=new T.WebGLRenderer({canvas:$('gl'),antialias:true}); }catch(e){ return null; }
+  const scene=new T.Scene(), camera=new T.PerspectiveCamera(30,1,0.1,50); camera.position.set(0,0,7.6);
+  const group=new T.Group(); scene.add(group);
+  scene.add(new T.AmbientLight(0xffffff,0.62)); const dl=new T.DirectionalLight(0xffffff,0.55); dl.position.set(2,3,4); scene.add(dl);
+  const box=new T.LineSegments(new T.EdgesGeometry(new T.BoxGeometry(2,2,2)),new T.LineBasicMaterial({transparent:true,opacity:0.2})); group.add(box);
+  const ag=new T.BufferGeometry(); ag.setAttribute('position',new T.Float32BufferAttribute([-1,-1,1, 1,-1,1, -1,-1,1, -1,-1,-1, -1,-1,1, -1,1,1],3));
+  const axes=new T.LineSegments(ag,new T.LineBasicMaterial({transparent:true,opacity:0.65})); group.add(axes);
+  const meshes=[0,1,2,3].map(()=>{ const m=new T.Mesh(new T.BufferGeometry(),regionMat(T)); m.renderOrder=1; group.add(m); return m; });
+  const pts=new T.InstancedMesh(new T.SphereGeometry(0.032,14,10),new T.MeshLambertMaterial({color:0xffffff}),2000); pts.instanceColor=new T.InstancedBufferAttribute(new Float32Array(2000*3),3); pts.count=0; group.add(pts);
+  G3={T,renderer,scene,camera,group,box,axes,meshes,pts,size:0,lastBuild:0,owner:null,F:null};
+  g3Colors(); return G3;
+}
+function grad(F,i,j,k,o){
+  const id=i+j*GM+k*GM2;
+  o[0]=(i<GM-1?F[id+1]:F[id])-(i>0?F[id-1]:F[id]);
+  o[1]=(j<GM-1?F[id+GM]:F[id])-(j>0?F[id-GM]:F[id]);
+  o[2]=(k<GM-1?F[id+GM2]:F[id])-(k>0?F[id-GM2]:F[id]);
+}
+function polygonize(F){
+  const pos=[], nor=[], v=new Float32Array(8), ga=[0,0,0], gb=[0,0,0];
+  let ci=0,cj=0,ck=0;
+  const vert=(a,b)=>{
+    const t=v[a]/(v[a]-v[b]);
+    const ia=ci+CO[a][0], ja=cj+CO[a][1], ka=ck+CO[a][2], ib=ci+CO[b][0], jb=cj+CO[b][1], kb=ck+CO[b][2];
+    const x1=clamp(GC[ia]+(GC[ib]-GC[ia])*t,-1,1), x2=clamp(GC[ja]+(GC[jb]-GC[ja])*t,-1,1), x3=clamp(GC[ka]+(GC[kb]-GC[ka])*t,-1,1);
+    grad(F,ia,ja,ka,ga); grad(F,ib,jb,kb,gb);
+    let n1=-(ga[0]+(gb[0]-ga[0])*t), n2=-(ga[1]+(gb[1]-ga[1])*t), n3=-(ga[2]+(gb[2]-ga[2])*t);
+    const m=Math.hypot(n1,n2,n3)||1;
+    pos.push(x1,x3,-x2); nor.push(n1/m,n3/m,-n2/m);
+  };
+  const ins=[0,0,0,0], out=[0,0,0,0];
+  for(ck=0;ck<GM-1;ck++) for(cj=0;cj<GM-1;cj++) for(ci=0;ci<GM-1;ci++){
+    const base=ci+cj*GM+ck*GM2; let any=false, all=true;
+    for(let c=0;c<8;c++){ v[c]=F[base+COFF[c]]; if(v[c]>0) any=true; else all=false; }
+    if(!any||all) continue;
+    for(const T4 of TETS){
+      let ni=0,no=0; for(const c of T4){ if(v[c]>0) ins[ni++]=c; else out[no++]=c; }
+      if(ni===1){ vert(ins[0],out[0]); vert(ins[0],out[1]); vert(ins[0],out[2]); }
+      else if(ni===3){ vert(out[0],ins[0]); vert(out[0],ins[1]); vert(out[0],ins[2]); }
+      else if(ni===2){ vert(ins[0],out[0]); vert(ins[0],out[1]); vert(ins[1],out[1]); vert(ins[0],out[0]); vert(ins[1],out[1]); vert(ins[1],out[0]); }
+    }
+  }
+  return {pos,nor};
+}
+function buildRegions(st){
+  const g=G3, T=g.T, K=st.K, x=[0,0,0], eps=0.03;
+  if(!g.F||g.F.length!==K) g.F=Array.from({length:K},()=>new Float32Array(GM3));
+  const F=g.F;
+  for(let k=0;k<GM;k++) for(let j=0;j<GM;j++) for(let i=0;i<GM;i++){
+    const id=i+j*GM+k*GM2;
+    if(i===0||j===0||k===0||i===GM-1||j===GM-1||k===GM-1){ for(let c=0;c<K;c++) F[c][id]=-1; continue; }
+    x[0]=GC[i]; x[1]=GC[j]; x[2]=GC[k]; const y=st.net.forward(x);
+    for(let c=0;c<K;c++){ let mo=-1; for(let q=0;q<K;q++) if(q!==c&&y[q]>mo) mo=y[q]; F[c][id]=y[c]-mo-eps; }
+  }
+  g.meshes.forEach((m,c)=>{
+    m.geometry.dispose(); const geo=new T.BufferGeometry();
+    if(c<K){ const r=polygonize(F[c]); geo.setAttribute('position',new T.Float32BufferAttribute(r.pos,3)); geo.setAttribute('normal',new T.Float32BufferAttribute(r.nor,3)); }
+    m.geometry=geo; m.visible=c<K;
+  });
+}
+function buildPoints(st){
+  const g=G3, T=g.T, m=new T.Matrix4(), col=new T.Color(), n=Math.min(st.pts.length,2000);
+  for(let i=0;i<n;i++){ const p=st.pts[i].p; m.makeTranslation(p[0],p[2],-p[1]); g.pts.setMatrixAt(i,m); col.set(C.cls[st.pts[i].c]); g.pts.setColorAt(i,col); }
+  if(n===0){ col.set(C.ink); g.pts.setColorAt(0,col); }
+  g.pts.count=n; g.pts.instanceMatrix.needsUpdate=true; if(g.pts.instanceColor) g.pts.instanceColor.needsUpdate=true;
+}
+function render3D(st){
+  const ctx=pctx; ctx.clearRect(0,0,PS,PS);
+  const g=initGL();
+  if(!g){ ctx.fillStyle=C.muted; ctx.font=`14px ${C.mono}`; ctx.textAlign='center'; ctx.fillText('WebGL niedostępny',PS/2,PS/2); return; }
+  if(g.size!==PS){ g.renderer.setPixelRatio(window.devicePixelRatio||1); g.renderer.setSize(PS,PS,false); g.size=PS; }
+  g.group.rotation.set(st.pitch,st.yaw,0);
+  const now=performance.now();
+  if(g.owner!==st||g.K!==st.K||(st.netDirty&&(!st.running||now-g.lastBuild>90))){ buildRegions(st); g.lastBuild=now; g.owner=st; g.K=st.K; st.netDirty=false; st.ptsDirty=true; }
+  if(st.ptsDirty){ buildPoints(st); st.ptsDirty=false; }
+  g.meshes.forEach(m=>{ m.material.uniforms.uOp.value=st.opacity; if(!st.showVox) m.visible=false; else if(m.geometry.attributes.position) m.visible=true; });
+  g.pts.visible=st.showPts;
+  g.renderer.render(g.scene,g.camera);
+  g.group.updateMatrixWorld();
+  ctx.font=`italic 15px ${C.mono}`; ctx.fillStyle=C.ink; ctx.textAlign='center';
+  const v=new g.T.Vector3();
+  for(const [p,l] of LBL3){ v.set(p[0],p[1],p[2]).applyMatrix4(g.group.matrixWorld).project(g.camera); ctx.fillText(l,(v.x+1)/2*PS,(1-v.y)/2*PS+5); }
+}
+
+/* ---------------- schemat sieci ---------------- */
+function renderNet(st){
+  const ctx=nctx, W=NW, H=NH, net=st.net, sizes=net.sizes, L=sizes.length;
+  ctx.clearRect(0,0,W,H);
+  const padX=30, top=8, bot=24, avail=H-top-bot;
+  const colX=l=>padX+l*(W-2*padX)/(L-1);
+  const maxN=Math.max(...sizes); const r=clamp(avail/maxN*0.32,2.5,10);
+  const nodeY=(l,i)=>{ const n=sizes[l]; if(n===1) return top+avail/2; const span=Math.min(avail,n*r*3.4); return top+(avail-span)/2+i*span/(n-1); };
+  let mx=1e-9; for(const Wl of net.W) for(const w of Wl) mx=Math.max(mx,Math.abs(w));
+  for(let l=0;l<L-1;l++){ const nIn=sizes[l], nOut=sizes[l+1], Wl=net.W[l];
+    for(let oo=0;oo<nOut;oo++) for(let i=0;i<nIn;i++){ const w=Wl[oo*nIn+i], a=Math.abs(w)/mx;
+      ctx.globalAlpha=0.12+0.8*a; ctx.strokeStyle=w>=0?C.accent:C.neg; ctx.lineWidth=0.5+3.2*a;
+      ctx.beginPath(); ctx.moveTo(colX(l),nodeY(l,i)); ctx.lineTo(colX(l+1),nodeY(l+1,oo)); ctx.stroke(); } }
+  ctx.globalAlpha=1;
+  for(let l=0;l<L;l++) for(let i=0;i<sizes[l];i++){
+    ctx.beginPath(); ctx.arc(colX(l),nodeY(l,i),r,0,Math.PI*2);
+    let fill=C.panel; if(l===L-1){ if(net.out==='softmax') fill=C.cls[i]; else if(net.out==='sigmoid') fill=C.cls[1]; }
+    ctx.fillStyle=fill; ctx.fill(); ctx.lineWidth=1.4; ctx.strokeStyle=C.ink; ctx.stroke();
+  }
+  ctx.font=`13px ${C.mono}`; ctx.fillStyle=C.ink; ctx.textAlign='right';
+  for(let i=0;i<sizes[0];i++) ctx.fillText(net.out==='linear'?'x':'x'+SUB[i+1],colX(0)-r-5,nodeY(0,i)+4);
+  ctx.textAlign='left';
+  if(net.out!=='softmax') ctx.fillText(net.out==='linear'?'ŷ':'p',colX(L-1)+r+5,nodeY(L-1,0)+4);
+  ctx.font=`11px ${C.mono}`; ctx.fillStyle=C.muted; ctx.textAlign='center';
+  for(let l=1;l<L;l++){ const t= l<L-1 ? (net.act==='relu'?'ReLU':'tanh') : ({linear:'',sigmoid:'σ',softmax:'softmax'})[net.out]; if(t) ctx.fillText(t,clamp(colX(l),24,W-24),H-6); }
+  $('arch').textContent=sizes.join(' → ');
+}
+
+function renderSpark(st){
+  const ctx=sctx,W=SW,H=SH; ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(0,H-0.5); ctx.lineTo(W,H-0.5); ctx.stroke();
+  const h=st.hist; if(h.length<2) return;
+  const lv=h.map(v=>Math.log10(Math.max(v,1e-5))); let mn=Infinity,mx=-Infinity; for(const v of lv){ if(v<mn)mn=v; if(v>mx)mx=v; } if(mx-mn<1e-6) mx=mn+1;
+  const X=i=>2+i/(lv.length-1)*(W-6), Y=v=>4+(1-(v-mn)/(mx-mn))*(H-10);
+  ctx.beginPath(); lv.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));
+  ctx.strokeStyle=C.accent; ctx.lineWidth=1.8; ctx.stroke();
+  ctx.lineTo(X(lv.length-1),H); ctx.lineTo(X(0),H); ctx.closePath(); ctx.fillStyle=rgba(C.accent,0.12); ctx.fill();
+  ctx.beginPath(); ctx.arc(X(lv.length-1),Y(lv[lv.length-1]),3,0,Math.PI*2); ctx.fillStyle=C.accent; ctx.fill();
+}
+
+function updateMetrics(st){
+  const reg=st.cfg.kind==='reg';
+  $('mEpoch').textContent=st.epoch;
+  $('mLossLbl').textContent=reg?'MSE':'Strata';
+  $('mLoss').textContent=isNaN(st.loss)?'–':(reg?st.loss*25:st.loss).toFixed(3);
+  $('mAcc').textContent=isNaN(st.acc)?'–':(st.acc*100).toFixed(1)+'%';
+}
+
+/* ---------------- dymek z prawdopodobieństwami ---------------- */
+let hover=null, drag=null;
+function inPlot(px,py){ const g=geom(); return px>=g.x0&&px<=g.x0+g.w&&py>=g.y0&&py<=g.y0+g.h; }
+function updateTip(st){
+  const tip=$('tip');
+  if(!hover||drag||st.cfg.kind!=='cls'||st.cfg.dim!==2||!inPlot(hover.px,hover.py)){ tip.hidden=true; return; }
+  const p=probs(st.net,toWorld(st,hover.px,hover.py));
+  tip.innerHTML=p.map((v,k)=>`<div class="tr"><i style="background:${C.cls[k]}"></i><span class="bar"><span style="width:${(v*100).toFixed(1)}%;background:${C.cls[k]}"></span></span><b>${Math.round(v*100)}%</b></div>`).join('');
+  tip.hidden=false;
+  const w=150, h=tip.offsetHeight||60;
+  let x=hover.px+16, y=hover.py+16; if(x+w>PS-6) x=hover.px-16-w; if(y+h>PS-6) y=hover.py-16-h;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+}
+
+/* ---------------- interakcja z planszą ---------------- */
+function evPos(e){ const r=plot.getBoundingClientRect(); return {px:e.clientX-r.left, py:e.clientY-r.top}; }
+function ptScreen(st,p){ return st.cfg.kind==='reg'?toScreen(st,p.x,p.y):toScreen(st,p.p[0],p.p[1]); }
+function nearest(st,px,py){ let bi=-1,bd=14*14; st.pts.forEach((p,i)=>{ const [sx,sy]=ptScreen(st,p); const d=(sx-px)**2+(sy-py)**2; if(d<bd){bd=d;bi=i;} }); return bi; }
+function placePt(st,i,px,py){ const [a,b]=domain(st); let [x,y]=toWorld(st,px,py); x=clamp(x,a,b); y=clamp(y,a,b); if(st.cfg.kind==='reg'){ st.pts[i].x=x; st.pts[i].y=y; } else { st.pts[i].p=[x,y]; } dataChanged(st); }
+plot.addEventListener('contextmenu',e=>e.preventDefault());
+plot.addEventListener('pointerdown',e=>{
+  const st=cur(); const {px,py}=evPos(e);
+  if(st.cfg.dim===3){ drag={type:'rot',x:e.clientX,y:e.clientY}; plot.setPointerCapture(e.pointerId); return; }
+  if(!inPlot(px,py)) return;
+  const near=nearest(st,px,py);
+  if(e.button===2||e.shiftKey){ if(near>=0){ st.pts.splice(near,1); dataChanged(st); } return; }
+  if(e.button!==0) return;
+  let idx=near;
+  if(idx<0){ if(st.cfg.kind==='reg') st.pts.push({x:0,y:0}); else st.pts.push({p:[0,0],c:st.selClass}); idx=st.pts.length-1; placePt(st,idx,px,py); }
+  drag={type:'pt',idx}; plot.setPointerCapture(e.pointerId);
+});
+plot.addEventListener('pointermove',e=>{
+  const st=cur(); const {px,py}=evPos(e); hover={px,py};
+  if(drag&&drag.type==='pt') placePt(st,drag.idx,px,py);
+  else if(drag&&drag.type==='rot'){ st.yaw+=(e.clientX-drag.x)*0.01; st.pitch=clamp(st.pitch+(e.clientY-drag.y)*0.01,-1.45,1.45); drag.x=e.clientX; drag.y=e.clientY; }
+  needRender=true;
+});
+const endDrag=()=>{ drag=null; needRender=true; };
+plot.addEventListener('pointerup',endDrag); plot.addEventListener('pointercancel',endDrag);
+plot.addEventListener('pointerleave',()=>{ hover=null; $('tip').hidden=true; needRender=true; });
+
+/* ---------------- panel sterowania ---------------- */
+function seg(el,opts,val,on){ el.innerHTML=''; for(const [v,l] of opts){ const b=document.createElement('button'); b.type='button'; b.className='s'; b.textContent=l; b.setAttribute('aria-pressed',String(v===val)); b.onclick=()=>{ on(v); syncUI(); }; el.appendChild(b); } }
+const lrFromSlider=v=>Math.pow(10,-3+2.5*v/100), sliderFromLr=lr=>Math.round((Math.log10(lr)+3)/2.5*100);
+function formula(st){
+  const c=st.cfg; if(c.n===1) return 'ŷ = w·x + b'; if(c.n===2) return 'p = σ(w₁x₁ + w₂x₂ + b)';
+  const a=st.act==='relu'?'ReLU':'tanh', L=st.layers, parts=[];
+  for(let l=1;l<=L;l++){ const inp=l===1?'x':'h'+SUB[l-1]; const nm=L===1?'h':'h'+SUB[l]; parts.push(`${nm} = ${a}(W${SUB[l]}${inp} + b${SUB[l]})`); }
+  parts.push(`p = ${c.n===3?'σ':'softmax'}(W${SUB[L+1]}${L===1?'h':'h'+SUB[L]} + b${SUB[L+1]})`);
+  return parts.join('   →   ');
+}
+function syncRun(){ const st=cur(); $('btnRun').textContent=st.running?'❚❚ Pauza':'▶ Trenuj'; }
+function syncUI(){
+  const st=cur(), c=st.cfg, reg=c.kind==='reg', d3=c.dim===3;
+  [...$('tabs').children].forEach((t,i)=>t.setAttribute('aria-selected',String(i===curIdx)));
+  $('formula').textContent=formula(st);
+  $('eq').hidden=!reg; $('pManual').hidden=!reg; $('pArch').hidden=!c.hidden;
+  $('rowK').hidden=reg||!!c.fixedK; $('rowAdd').hidden=!(c.kind==='cls'&&c.dim===2);
+  $('mAccWrap').hidden=reg; $('pView').hidden=!(reg||d3); $('rowOp').hidden=!d3;
+  $('stage').classList.toggle('rot',d3); $('gl').hidden=!d3;
+  seg($('segData'), reg?DATASETS.reg:(d3?DATASETS.cls3:DATASETS.cls2), st.dataset, v=>{ st.dataset=v; genData(st); buildNet(st); });
+  if(!reg&&!c.fixedK) seg($('segK'),[[2,'2'],[3,'3'],[4,'4']],st.K,v=>{ st.K=v; st.selClass=0; genData(st); buildNet(st); });
+  const chips=$('chips'); chips.innerHTML='';
+  if(!reg) for(let k=0;k<st.K;k++){ const b=document.createElement('button'); b.type='button'; b.className='chip'; b.style.background=C.cls[k]; b.title='Klasa '+(k+1); b.setAttribute('aria-pressed',String(k===st.selClass)); b.onclick=()=>{ st.selClass=k; syncUI(); }; chips.appendChild(b); }
+  if(c.hidden){
+    seg($('segLayers'),[[1,'1'],[2,'2'],[3,'3']],st.layers,v=>{ st.layers=v; buildNet(st); });
+    seg($('segAct'),[['tanh','tanh'],['relu','ReLU']],st.act,v=>{ st.act=v; buildNet(st); });
+    $('iNeur').value=st.neurons; $('oNeur').textContent=st.neurons;
+  }
+  $('iNoise').value=st.noise; $('oNoise').textContent=st.noise.toFixed(2);
+  $('iLr').value=sliderFromLr(st.lr); $('oLr').textContent=st.lr.toFixed(3);
+  $('iSpeed').value=st.speed; $('oSpeed').textContent=st.speed;
+  const tg=$('toggles'); tg.innerHTML='';
+  const tog=(key,label)=>{ const b=document.createElement('button'); b.type='button'; b.className='s'; b.textContent=label; b.setAttribute('aria-pressed',String(!!st[key])); b.onclick=()=>{ st[key]=!st[key]; syncUI(); }; tg.appendChild(b); };
+  if(reg) tog('showSq','Kwadraty błędów');
+  if(d3){ tog('showVox','Obszary'); tog('showPts','Punkty'); tog('rotate','Obrót'); $('iOp').value=st.opacity; $('oOp').textContent=st.opacity.toFixed(2); }
+  syncRun(); $('tip').hidden=true; needRender=true;
+}
+STEPS.forEach((s,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='tab'; b.setAttribute('role','tab'); b.innerHTML=`<span class="n">${s.n}</span>${s.name}`; b.onclick=()=>{ curIdx=i; hover=null; syncUI(); }; $('tabs').appendChild(b); });
+
+$('btnRun').onclick=()=>{ const st=cur(); st.running=!st.running; syncRun(); };
+$('btnStep').onclick=()=>{ trainStep(cur()); needRender=true; };
+$('btnReset').onclick=()=>{ buildNet(cur()); needRender=true; };
+$('btnData').onclick=()=>{ genData(cur()); };
+$('iLr').oninput=e=>{ const st=cur(); st.lr=lrFromSlider(+e.target.value); $('oLr').textContent=st.lr.toFixed(3); };
+$('iSpeed').oninput=e=>{ const st=cur(); st.speed=+e.target.value; $('oSpeed').textContent=st.speed; };
+$('iNoise').oninput=e=>{ const st=cur(); st.noise=+e.target.value; $('oNoise').textContent=st.noise.toFixed(2); genData(st); };
+$('iNeur').oninput=e=>{ const st=cur(); st.neurons=+e.target.value; $('oNeur').textContent=st.neurons; buildNet(st); };
+$('iOp').oninput=e=>{ const st=cur(); st.opacity=+e.target.value; $('oOp').textContent=st.opacity.toFixed(2); needRender=true; };
+$('iW').oninput=e=>{ const st=cur(); st.running=false; syncRun(); setRegParams(st,+e.target.value,regParams(st).b); };
+$('iB').oninput=e=>{ const st=cur(); st.running=false; syncRun(); setRegParams(st,regParams(st).w,+e.target.value); };
+
+document.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const tag=e.target.tagName;
+  if(e.key===' '){ if(tag==='INPUT') return; e.preventDefault(); $('btnRun').click(); }
+  else if(/^[1-5]$/.test(e.key)){ curIdx=+e.key-1; hover=null; syncUI(); }
+  else if(e.key==='r'||e.key==='R') $('btnReset').click();
+  else if(e.key==='n'||e.key==='N') $('btnData').click();
+});
+
+/* ---------------- pętla ---------------- */
+function loop(){
+  const st=cur();
+  if(st.running){ for(let i=0;i<st.speed;i++) trainStep(st); needRender=true; }
+  if(st.cfg.dim===3&&st.rotate&&!drag){ st.yaw+=0.004; needRender=true; }
+  if(needRender){
+    needRender=false;
+    if(st.cfg.kind==='reg') renderReg(st); else if(st.cfg.dim===2) renderCls2(st); else render3D(st);
+    renderNet(st); renderSpark(st); updateMetrics(st);
+  }
+  requestAnimationFrame(loop);
+}
+syncUI(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>

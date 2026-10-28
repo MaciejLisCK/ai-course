@@ -1,4 +1,4 @@
-kroki do LLM:
+kroki do zrozumienia SSN:
 1. regresja liniowa => dopasowanie prostej do danych
 2. regresja logistyczna => rozdzielenie 2 klas prostą
 3. sieć neuronowa => rozdzielenie 2 klas krzywą
