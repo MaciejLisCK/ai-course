@@ -1,0 +1,14 @@
+# Proces tłumaczenia
+Ogólny opis
+1. wprowadzenie - overview
+2. intuicja
+3. przykład
+4. działanie
+    1. proces wnioskowania/działania (dlaczego podejmujmy daną decyzję)
+    2. proces uczenia (patrzymy ze swojej perspektywy tak jakbyśmy chcieli nauczyć 6-letnie dziecko)
+    3. struktura wiedzy po nauczeniu (próbujemy zrozumieć na jakiej podstawie coś wiemy, jak to siedzi w naszym mózgu)
+5. zastosowania, pułapki, ciekawostki
+
+
+intuicja analogia
+mrówki?
