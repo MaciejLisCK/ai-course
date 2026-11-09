@@ -1,0 +1,1454 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Laboratorium RNN</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Układ: sterowanie u góry → ścieżka dane → program (sieć rozwinięta w czasie) → wynik → biblioteki pod spodem */
+:root{
+  --bg:#e7eae5; --panel:#f9faf7; --sunk:#eef1eb; --ink:#1a231f; --muted:#64706a; --line:#d2d8d0;
+  --pos:#2563d0; --neg:#d42a2a; --c2:#1c9441; --c3:#e3b100; --c4:#8b3fd1; --sel:#1a231f; --heat0:#f6f7f3;
+  --mem:#c2410c;
+  --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1210; --panel:#161b18; --sunk:#111613; --ink:#e2e8e4; --muted:#8a958f; --line:#29312d;
+  --pos:#5d9cff; --neg:#ff5d5d; --c2:#47c46c; --c3:#f4d03f; --c4:#b88cff; --sel:#e2e8e4; --heat0:#1a1f1c;
+  --mem:#fb8c4a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1210; --panel:#161b18; --sunk:#111613; --ink:#e2e8e4; --muted:#8a958f; --line:#29312d;
+  --pos:#5d9cff; --neg:#ff5d5d; --c2:#47c46c; --c3:#f4d03f; --c4:#b88cff; --sel:#e2e8e4; --heat0:#1a1f1c;
+  --mem:#fb8c4a; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-ui);margin:0}
+canvas{image-rendering:pixelated}
+.app{max-width:1600px;margin:0 auto;display:grid;gap:14px;padding-block:16px 28px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.ph{display:flex;align-items:center;gap:10px;margin-bottom:12px;min-height:28px;flex-wrap:wrap}
+h2,h3.sub{margin:0;font:600 11.5px/1 var(--f-cond);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+h3.sub{margin:16px 0 8px;font-size:10.5px}
+.sp{flex:1}
+.mono{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.hint{font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.45}
+
+.btn{font:500 13px/1 var(--f-ui);color:var(--ink);background:var(--sunk);border:1px solid var(--line);
+  border-radius:7px;padding:8px 12px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.btn.sm{padding:6px 9px;font-size:12px}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn:focus-visible,select:focus-visible,input:focus-visible,.seg button:focus-visible,.card:focus-visible,.hc:focus-visible,.unit:focus-visible,.kc:focus-visible,.tok:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:8px;padding:2px}
+.seg button{font:500 13px/1 var(--f-ui);color:var(--muted);background:transparent;border:0;border-radius:6px;padding:8px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.seg.sm button{padding:6px 10px;font-size:12px}
+select{font:500 12.5px var(--f-num);color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:5px 6px}
+input[type=range]{accent-color:var(--ink);width:100%;margin:0}
+
+.controls{display:flex;align-items:center;gap:14px 22px;flex-wrap:wrap}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grp+.grp{padding-left:22px;border-left:1px solid var(--line)}
+.speed{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.speed input{width:110px}
+.speed b{font:500 12px var(--f-num);color:var(--ink);min-width:66px}
+.tg{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;user-select:none}
+.tg input{position:absolute;opacity:0;width:1px;height:1px}
+.tg i{width:28px;height:16px;border-radius:9px;background:var(--line);position:relative;transition:background .15s;flex:none}
+.tg i::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--panel);transition:transform .15s}
+.tg input:checked+i{background:var(--ink)}
+.tg input:checked+i::after{transform:translateX(12px)}
+.tg input:focus-visible+i{outline:2px solid var(--sel);outline-offset:2px}
+#stageV{font-size:12px;min-width:150px}
+
+.pipeline{display:grid;grid-template-columns:240px 30px minmax(0,1fr) 30px 300px;align-items:stretch}
+.link{display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.link svg{width:30px;height:18px;overflow:visible}
+.link path{stroke:currentColor;stroke-width:1.6;fill:none;stroke-dasharray:3 4}
+.link polygon{fill:currentColor}
+.link.on{color:var(--ink)}
+.link.on path{animation:dash .5s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-7}}
+@media (max-width:1240px){.pipeline{grid-template-columns:minmax(0,1fr)}.link{height:30px}.link svg{transform:rotate(90deg)}}
+
+/* dane */
+.fields{display:grid;gap:12px;margin:16px 0 14px}
+.field{display:grid;grid-template-columns:1fr auto;gap:5px 8px;font-size:12.5px;color:var(--muted)}
+.field b{font:500 12px var(--f-num);color:var(--ink)}
+.field input{grid-column:1/-1}
+.dcount{font-size:11.5px;color:var(--muted);margin-top:10px;text-align:center}
+.program,.data,.library,.dlib{transition:box-shadow .15s}
+.dslot{background:var(--sunk);border:1px solid var(--line);border-radius:9px;padding:8px;display:grid;gap:7px}
+#dprev{width:100%;display:block;border-radius:6px}
+.dname{font-weight:600;font-size:13.5px;padding:0 2px}
+.dax{font:11px/1.4 var(--f-num);color:var(--muted);padding:0 2px}
+.dcls{display:flex;flex-wrap:wrap;gap:3px 10px;font-size:12px;padding:0 2px 2px}
+.dempty{min-height:180px;display:grid;place-items:center;text-align:center;padding:16px;color:var(--muted);font-size:13px;border:1.5px dashed var(--line);border-radius:7px}
+.toks{display:flex;flex-wrap:wrap;gap:4px}
+.tok{width:30px;height:34px;border-radius:6px;border:0;font:600 14px var(--f-num);color:#fff;cursor:pointer;display:grid;place-items:center;position:relative;padding:0}
+.tok small{position:absolute;bottom:-14px;left:0;right:0;text-align:center;font:500 9px var(--f-num);color:var(--muted)}
+.toks.lab{row-gap:18px;padding-bottom:14px}
+#sigEd{width:100%;height:150px;display:block;border-radius:6px;cursor:crosshair;touch-action:none;image-rendering:auto;background:var(--panel)}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:14px 0 4px}
+.dtruth{font-size:12px;margin-top:12px;color:var(--muted)}
+
+/* program */
+.program{display:flex;flex-direction:column}
+.socket{flex:1;display:flex;flex-direction:column;background:var(--sunk);border:1px solid var(--line);border-radius:9px;position:relative;min-height:380px;min-width:0}
+.port{position:absolute;top:120px;transform:translateY(-50%);font:500 11px var(--f-num);color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:3px 5px;z-index:2}
+.port.in{left:-11px}.port.out{right:-11px}
+.empty{flex:1;display:grid;place-items:center;color:var(--muted);font-size:13.5px;border:1.5px dashed var(--line);border-radius:8px;margin:14px;text-align:center;padding:12px}
+.chip{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 10px 5px 6px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;font-weight:600;font-size:13px}
+.chip .grip,.card .grip{width:10px;height:14px;background-image:radial-gradient(var(--muted) 1.2px,transparent 1.3px);background-size:5px 5px;opacity:.8}
+.chip .ep{font:500 11.5px var(--f-num);color:var(--muted)}
+.netwrap{overflow-x:auto;padding:16px 18px 12px}
+.net{position:relative;width:max-content;margin:0 auto;display:flex;align-items:center;gap:44px}
+.net svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.ugrid{display:grid;column-gap:12px;row-gap:22px;align-items:center;justify-items:center;position:relative}
+.rlab{justify-self:start;display:grid;gap:4px;font:600 10.5px/1.1 var(--f-cond);letter-spacing:.03em;text-transform:uppercase;color:var(--muted);white-space:nowrap;padding-right:6px}
+.rlab .shp{font:500 10.5px var(--f-num);letter-spacing:0;text-transform:none;color:var(--ink)}
+.mini{display:inline-flex;align-items:center;gap:2px;flex-wrap:wrap}
+.mini button{min-width:18px;height:19px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font:500 11px/1 var(--f-num);padding:0 4px;text-transform:none;letter-spacing:0}
+.mini button:disabled{opacity:.3;cursor:default}
+.mini button.x{color:var(--muted)}
+.mini button[aria-pressed="true"]{background:var(--mem);color:#fff;border-color:var(--mem)}
+.mini span{font:500 11px var(--f-num);min-width:14px;text-align:center;color:var(--ink)}
+.hc{width:14px;border-radius:3px;box-shadow:0 0 0 1px var(--line);cursor:pointer;background:var(--heat0);transition:opacity .25s;position:relative}
+.hc canvas{width:100%;height:100%;display:block;border-radius:3px}
+.hc:hover{box-shadow:0 0 0 2px var(--ink)}
+.hc.sel{box-shadow:0 0 0 2px var(--sel),0 0 0 4px var(--panel),0 0 0 5px var(--sel)}
+.xc{width:26px;height:26px;border-radius:5px;display:grid;place-items:center;font:600 12px var(--f-num);color:#fff;position:relative;background:var(--heat0);box-shadow:0 0 0 1px var(--line);overflow:hidden}
+.xc i{position:absolute;left:5px;right:5px;border-radius:2px}
+.xc::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--line)}
+.xc.sym::after{display:none}
+.tl{font:500 10px var(--f-num);color:var(--muted)}
+.gcell{width:26px;height:34px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)}
+.gcell i{width:10px;border-radius:2px 2px 0 0;background:var(--mem);transition:height .1s}
+.pend{opacity:.16}
+.head{display:flex;gap:40px;align-items:center}
+.col{display:flex;flex-direction:column;align-items:center;gap:8px;transition:opacity .25s}
+.colhead{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 10.5px/1 var(--f-cond);letter-spacing:.03em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+.colhead .shp{font:500 10.5px var(--f-num);letter-spacing:0;text-transform:none;color:var(--ink)}
+.units{display:flex;flex-direction:column;align-items:center;gap:8px}
+.unit{position:relative;cursor:pointer;box-shadow:0 0 0 1px var(--line);border-radius:50%;background:var(--heat0);flex:none}
+.unit:hover{box-shadow:0 0 0 2px var(--ink)}
+.unit.sel{box-shadow:0 0 0 2px var(--sel),0 0 0 4px var(--panel),0 0 0 5px var(--sel)}
+.unit .val{position:absolute;top:50%;left:100%;transform:translateY(-50%);margin-left:4px;font:500 10px/1 var(--f-num);white-space:nowrap;color:var(--ink);pointer-events:none}
+.orow{display:flex;align-items:center;gap:6px;min-width:110px}
+.orow .unit{width:28px;height:28px;border-radius:4px}
+.orow .ol{font-size:12px;white-space:nowrap}
+.orow .ov{font:500 11px var(--f-num);color:var(--muted);margin-left:auto}
+.orow.win .ol{font-weight:600}.orow.win .ov{color:var(--ink)}
+.e{fill:none;stroke-linecap:round;transition:stroke-opacity .2s}
+.e.in{stroke:var(--ink)}.e.rec{stroke:var(--mem)}.e.p{stroke:var(--pos)}.e.n{stroke:var(--neg)}.e.m{stroke:var(--muted)}
+.e.cut{stroke:var(--muted);stroke-dasharray:2 4}
+.e.flow{stroke-dasharray:5 6;animation:dash .45s linear infinite}
+.editor{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
+.ed{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chips button{font:500 12px var(--f-num);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:3px 9px;cursor:pointer}
+.chips button:disabled{opacity:.35;cursor:not-allowed}
+.legend{display:flex;gap:12px;align-items:center;font:11px var(--f-num);color:var(--muted);margin-left:auto;flex-wrap:wrap}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.legend .gr{width:46px;height:9px;border-radius:2px}
+
+/* podgląd komórki */
+.insp{border-top:1px solid var(--line);padding:12px 14px 14px;display:grid;gap:12px}
+.insp-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+.insp-h b{font:600 13px var(--f-ui)}
+.fx{font:12.5px var(--f-num);color:var(--ink)}
+.fx .m,.calc .m{color:var(--muted)}
+.cw{display:flex;flex-wrap:wrap;align-items:center;gap:12px 8px}
+.cfig{margin:0;display:grid;justify-items:center;gap:5px}
+.cfig figcaption{font:10.5px var(--f-num);color:var(--muted);white-space:nowrap}
+.grid{display:grid;gap:2px}
+.kc,.wc{width:var(--cs,27px);height:var(--cs,27px);display:grid;place-items:center;border-radius:4px;font:500 8.5px var(--f-num);box-shadow:inset 0 0 0 1px var(--line);user-select:none;overflow:hidden}
+.kc{cursor:ns-resize;touch-action:none}
+.kc:hover{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.kc.off{cursor:not-allowed;opacity:.4}
+.calc{font:12px/1.7 var(--f-num);background:var(--sunk);border-radius:7px;padding:8px 11px}
+.presets{display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12px;color:var(--muted)}
+.presets button{font:500 11.5px var(--f-ui);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:12px;padding:3px 9px;cursor:pointer}
+.presets button:hover{border-color:var(--muted)}
+.op{font:600 14px var(--f-num);color:var(--muted);padding:0 2px;margin-bottom:16px;white-space:nowrap}
+
+/* wynik */
+.pred{display:grid;gap:5px;min-height:44px}
+.pbar{display:grid;grid-template-columns:96px minmax(0,1fr) 38px;align-items:center;gap:8px;font-size:12px}
+.pbar .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pbar .tr{height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.pbar .tr i{display:block;height:100%;border-radius:5px;transition:width .2s}
+.pbar .v{font:500 11px var(--f-num);text-align:right;color:var(--muted)}
+.pbar.win .nm{font-weight:600}.pbar.win .v{color:var(--ink)}
+.pinfo{font:12px var(--f-num);color:var(--muted);margin-bottom:4px}
+.sw{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin:0 3px 1px 2px}
+.sw.c1{background:var(--pos)}.sw.c0{background:var(--neg)}.sw.c2{background:var(--c2)}.sw.c3{background:var(--c3)}.sw.c4{background:var(--c4)}
+.stats{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.3fr) minmax(0,1fr);gap:8px;margin:12px 0 10px}
+.stat{background:var(--sunk);border-radius:7px;padding:7px 9px}
+.stat span{display:block;font-size:11px;color:var(--muted);white-space:nowrap}
+.stat b{font:500 17px var(--f-num)}
+#chart{width:100%;height:96px;display:block;image-rendering:auto}
+.clg{display:flex;gap:14px;font:10.5px var(--f-num);color:var(--muted);margin-top:4px}
+.clg i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:5px;background:var(--ink)}
+.clg i.d{background:repeating-linear-gradient(90deg,var(--muted) 0 3px,transparent 3px 5px)}
+#cv{width:100%;display:block;cursor:pointer;image-rendering:auto;border-radius:8px;border:1px solid var(--line);background:var(--sunk)}
+.small{font-size:11px;color:var(--muted);margin-top:5px}
+#cm{width:100%;display:block;image-rendering:auto}
+
+/* biblioteki */
+.libs{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,8fr);gap:14px;align-items:stretch}
+@media (max-width:1100px){.libs{grid-template-columns:minmax(0,1fr)}}
+.lh{display:flex;align-items:baseline;gap:8px}
+.lh .cnt{font:500 11px var(--f-num);color:var(--muted)}
+.lib-grid{display:grid;gap:10px;grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:760px){#dlibGrid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}#libGrid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+.card{position:relative;display:grid;gap:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel);cursor:grab;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:border-color .15s,opacity .15s,transform .15s,box-shadow .15s}
+.card:hover{border-color:var(--muted);transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+.card.in{opacity:.45;border-style:dashed;cursor:default;transform:none;box-shadow:none}
+.card.lifting{opacity:.3}
+.card .grip{position:absolute;left:6px;top:6px;opacity:0;transition:opacity .15s;z-index:1}
+.card:hover .grip{opacity:.9}
+.card .nm{font-weight:600;font-size:13px;line-height:1.25}
+.card .badge{position:absolute;right:6px;top:6px;font:600 9.5px/1 var(--f-cond);letter-spacing:.07em;text-transform:uppercase;color:var(--ink);background:var(--panel);border:1px solid var(--sel);border-radius:10px;padding:4px 7px;z-index:1}
+.dcard canvas{width:100%;height:auto;aspect-ratio:1;display:block;border-radius:6px;box-shadow:0 0 0 1px var(--line);background:var(--sunk)}
+.dcard .nm{padding:0 2px;font-size:12.5px}
+.dcard .dk{display:flex;align-items:center;gap:3px;padding:0 2px 2px;font:10px var(--f-num);color:var(--muted);white-space:nowrap;overflow:hidden}
+.dcard .dk .sw{margin:0;width:7px;height:7px}
+.mcard .ar{font:500 11px var(--f-num);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mcard .arch{background:var(--sunk);border-radius:7px;height:64px;display:grid;place-items:center;padding:4px 8px}
+.mcard .arch svg{width:100%;height:56px;display:block}
+.mcard .arch .bx{fill:var(--panel);stroke:var(--ink);stroke-width:.9}
+.mcard .arch .rn{fill:var(--ink)}
+.mcard .arch .lp{fill:none;stroke:var(--mem);stroke-width:1.4}
+.mcard .arch .lp.cut{stroke:var(--muted);stroke-dasharray:2 2}
+.mcard .arch .ln{stroke:var(--muted);stroke-width:.8}
+.mcard .arch circle{fill:var(--ink)}
+.mcard .arch circle.o{fill:var(--pos)}
+.mcard .arch text{font:7px var(--f-num);fill:var(--muted)}
+.mrow{display:grid;grid-template-columns:36px minmax(0,1fr);gap:8px;align-items:center;min-height:40px}
+.mrow canvas{width:36px;height:36px;border-radius:5px;display:block;box-shadow:0 0 0 1px var(--line);background:var(--heat0)}
+.mcard .meta{display:flex;flex-wrap:wrap;gap:4px}
+.mcard .meta span{font:500 10.5px var(--f-num);color:var(--muted);background:var(--sunk);border-radius:5px;padding:2px 6px}
+.ghost{position:fixed;left:0;top:0;width:220px;z-index:1000;pointer-events:none;transition:none!important;will-change:transform;box-shadow:0 18px 40px rgba(0,0,0,.3);opacity:.97;border-color:var(--ink)}
+.ghost.dcard{width:130px}
+.armed{outline:2px dashed var(--sel);outline-offset:3px}
+.hot{outline-style:solid}
+body.dragging,body.dragging *{cursor:grabbing!important}
+body.dragging{-webkit-user-select:none;user-select:none}
+.dropdock{position:fixed;left:50%;top:max(10px,env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:999;width:min(560px,calc(100vw - 24px));
+  padding:18px 16px;border:2px dashed var(--sel);border-radius:12px;background:var(--panel);color:var(--ink);text-align:center;
+  font:600 14px var(--f-ui);box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:none;transition:background .12s,transform .12s}
+.dropdock.hot{border-style:solid;background:var(--ink);color:var(--panel);transform:translateX(-50%) scale(1.03)}
+@media (hover:none){.card:hover{transform:none;box-shadow:none;border-color:var(--line)}.card .grip{opacity:.6}}
+@media (max-width:560px){.ghost{width:170px}.ghost.dcard{width:110px}.grp+.grp{padding-left:0;border-left:0}.legend{margin-left:0}}
+
+.tip{position:fixed;z-index:900;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:9px 10px;box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:12px;max-width:min(560px,calc(100vw - 24px));display:grid;gap:8px}
+.tip b{font-weight:600}
+.decomp{display:flex;flex-wrap:wrap;align-items:center;gap:8px 4px}
+.term{margin:0;display:grid;justify-items:center;gap:3px}
+.term canvas{width:14px;border-radius:3px;display:block;box-shadow:0 0 0 1px var(--line)}
+.term figcaption{font:10.5px var(--f-num);color:var(--muted);white-space:nowrap}
+.term.a canvas{box-shadow:0 0 0 2px var(--ink)}
+@media (prefers-reduced-motion:reduce){.link.on path,.e.flow{animation:none}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <section class="panel controls" aria-label="Sterowanie">
+    <h2>Sterowanie</h2>
+    <div class="seg" id="modeSeg" role="group">
+      <button data-mode="train" aria-pressed="true">Trening</button>
+      <button data-mode="infer" aria-pressed="false">Inferencja</button>
+    </div>
+    <div class="grp" id="gTrain">
+      <button class="btn primary" id="bPlay">▶&nbsp; Ucz</button>
+      <button class="btn" id="bStep">+1 epoka</button>
+      <button class="btn" id="bReset">Losuj wagi</button>
+      <label class="speed">Prędkość <input type="range" id="speed" min="0" max="8" value="5"><b id="speedV"></b></label>
+    </div>
+    <div class="grp" id="gInfer" hidden>
+      <button class="btn" id="bRand">Losowa próbka</button>
+      <button class="btn primary" id="bFwd">Krok w czasie&nbsp; ▶</button>
+      <button class="btn" id="bFull">Cały przebieg</button>
+      <span class="mono muted" id="stageV"></span>
+    </div>
+  </section>
+
+  <div class="pipeline">
+    <section class="panel data" id="dataPanel" aria-label="Dane">
+      <div class="ph"><h2>Dane</h2></div>
+      <div class="dslot">
+        <canvas id="dprev"></canvas>
+        <div id="seqEd" hidden></div>
+        <div class="dname" id="dname"></div><div class="dax" id="dax"></div><div class="dcls" id="dcls"></div>
+        <div class="dempty" id="dempty" hidden>Przeciągnij tutaj zbiór danych z biblioteki albo go stuknij</div>
+      </div>
+      <div id="dTrain">
+        <div class="fields">
+          <label class="field" for="seqT"><span>Długość sekwencji T</span><b id="tV"></b><input type="range" id="seqT" min="4" max="24" step="1" value="10"></label>
+          <label class="field" for="noise"><span>Szum</span><b id="noiseV"></b><input type="range" id="noise" min="0" max="50" value="10"></label>
+          <label class="field" for="npts"><span>Liczba sekwencji</span><b id="nV"></b><input type="range" id="npts" min="100" max="800" step="20" value="400"></label>
+        </div>
+        <button class="btn wide" id="bRegen">Losuj nowe sekwencje</button>
+        <div class="dcount mono" id="dcount"></div>
+      </div>
+      <div id="dInfer" hidden>
+        <div class="tools">
+          <button class="btn sm" id="bRev">Odwróć kolejność</button>
+          <button class="btn sm" id="bRot">Przesuń w czasie →</button>
+          <button class="btn sm" id="bClear">Wyczyść</button>
+        </div>
+        <div class="dtruth mono" id="dtruth"></div>
+        <p class="hint" id="infHint"></p>
+      </div>
+    </section>
+
+    <div class="link" id="link1"><svg viewBox="0 0 30 18"><path d="M1 9H22"/><polygon points="21,4 29,9 21,14"/></svg></div>
+
+    <section class="panel program" id="program" aria-label="Program">
+      <div class="ph">
+        <h2>Program</h2>
+        <div class="chip" id="chip" hidden title="Przeciągnij, aby wyjąć model"><span class="grip"></span><span id="chipName"></span><span class="ep" id="chipEp"></span></div>
+      </div>
+      <div class="socket">
+        <span class="port in">x</span><span class="port out">ŷ</span>
+        <div class="empty" id="empty" hidden>Przeciągnij tutaj model z biblioteki albo go stuknij</div>
+        <div id="loaded" style="display:flex;flex-direction:column;flex:1;min-width:0">
+          <div class="netwrap" id="netwrap"><div class="net" id="net"></div></div>
+          <div class="editor">
+            <div class="ed"><span>Dodaj warstwę</span><div class="chips"><button id="addRnn">+ RNN</button><button id="addDense">+ gęsta</button></div></div>
+            <label class="ed" for="act"><span>Aktywacja</span><select id="act"><option value="tanh">tanh</option><option value="relu">ReLU</option><option value="sigmoid">sigmoid</option></select></label>
+            <label class="ed" for="lr"><span>Tempo uczenia</span><select id="lr"></select></label>
+            <label class="ed" for="l2"><span>L2</span><select id="l2"></select></label>
+            <label class="ed" for="batch"><span>Wsad</span><select id="batch"></select></label>
+            <label class="tg"><input type="checkbox" id="tKnobs"><i></i>Podgląd komórki</label>
+            <div class="legend"><span><i style="background:var(--ink)"></i>wejście Wₓ·x</span><span><i style="background:var(--mem)"></i>pamięć Wₕ·hₜ₋₁</span><span><i class="gr" style="background:linear-gradient(90deg,var(--neg),var(--heat0),var(--pos))"></i></span></div>
+          </div>
+          <div class="insp" id="insp" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="link" id="link2"><svg viewBox="0 0 30 18"><path d="M1 9H22"/><polygon points="21,4 29,9 21,14"/></svg></div>
+
+    <section class="panel result" aria-label="Wynik">
+      <div class="ph"><h2>Wynik</h2></div>
+      <div class="pinfo" id="pinfo"></div>
+      <div class="pred" id="pred"></div>
+      <div class="stats">
+        <div class="stat"><span>Epoka</span><b id="sEp">0</b></div>
+        <div class="stat"><span>Trafność test</span><b id="sAcc">–</b></div>
+        <div class="stat"><span>Strata</span><b id="sLtr">–</b></div>
+      </div>
+      <canvas id="chart"></canvas>
+      <div class="clg"><span><i></i>strata trening</span><span><i class="d"></i>strata test</span></div>
+      <h3 class="sub">Zbiór testowy</h3>
+      <canvas id="cv"></canvas>
+      <div class="small">Ramka = przewidziana klasa, róg = prawdziwa przy błędzie. Kliknij sekwencję, aby ją prześledzić.</div>
+      <h3 class="sub">Macierz pomyłek (test)</h3>
+      <canvas id="cm"></canvas>
+    </section>
+  </div>
+
+  <div class="libs">
+    <section class="panel dlib" id="dlib" aria-label="Biblioteka zbiorów danych">
+      <div class="ph"><div class="lh"><h2>Biblioteka zbiorów danych</h2><span class="cnt" id="dlibCnt"></span></div><div class="sp"></div><div class="seg sm" id="dtabs" role="group"><button data-tab="sym" aria-pressed="true">Symbole</button><button data-tab="sig" aria-pressed="false">Sygnały</button></div></div>
+      <div class="lib-grid" id="dlibGrid"></div>
+    </section>
+    <section class="panel library" id="library" aria-label="Biblioteka modeli">
+      <div class="ph"><div class="lh"><h2>Biblioteka modeli</h2><span class="cnt" id="libCnt"></span></div><div class="sp"></div><button class="btn sm" id="bLibReset">Przywróć domyślne</button></div>
+      <div class="lib-grid" id="libGrid"></div>
+    </section>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const TEST_FRAC = .25, MAXH = 16, MAXN = 32, MAXRNN = 3, MAXHEAD = 2;
+// i = sekwencji na sekundę (wolno, widać każdą), e = epok na sekundę
+const SPEEDS = [{v:1, u:'i'}, {v:5, u:'i'}, {v:0.25, u:'e'}, {v:0.5, u:'e'}, {v:1, u:'e'}, {v:2, u:'e'}, {v:5, u:'e'}, {v:10, u:'e'}, {v:30, u:'e'}];
+let uidN = 0; const uid = () => 'm' + (++uidN);
+const U = (a, b) => a + Math.random()*(b - a);
+const ri = (a, b) => a + Math.floor(Math.random()*(b - a + 1));
+function randn(){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const sigm = z => 1/(1 + Math.exp(-Math.max(-40, Math.min(40, z))));
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const f2 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(2);
+const f3 = v => (v < 0 ? '−' : '') + Math.abs(v).toFixed(3);
+const shuffle = a => { for (let i=a.length-1;i>0;i--){const r=Math.floor(Math.random()*(i+1));[a[i],a[r]]=[a[r],a[i]];} return a; };
+const ACTS = {tanh:{label:'tanh', id:1}, relu:{label:'ReLU', id:0}, sigmoid:{label:'sigmoid', id:2}};
+const actF = (id, z) => id === 0 ? (z > 0 ? z : 0) : id === 1 ? Math.tanh(z) : sigm(z);
+const actD = (id, z, a) => id === 0 ? (z > 0 ? 1 : 0) : id === 1 ? 1 - a*a : a*(1 - a);
+
+/* ---------- zbiory sekwencji ---------- */
+const SYM = ['A', 'B', 'C'];
+const randTok = (T, k) => Int8Array.from({length:T}, () => Math.floor(Math.random()*k));
+function reject(gen, label, c, fb){ for (let i=0; i<600; i++){ const r = gen(); if (label(r) === c) return r; } return fb(); }
+const cntA = tok => tok.reduce((a, s) => a + (s === 0), 0);
+const hasAB = tok => { for (let t=0; t<tok.length-1; t++) if (tok[t] === 0 && tok[t+1] === 1) return 1; return 0; };
+const DATASETS = {
+  first:{name:'Pierwszy symbol', group:'sym', D:3, classes:['A','B','C'], desc:'Klasa = symbol na pozycji 1. Sieć musi go zapamiętać do końca.',
+    sample:(T, c) => { const tok = randTok(T, 3); tok[0] = c; return {tok}; }, label:r => r.tok[0]},
+  last:{name:'Ostatni symbol', group:'sym', D:3, classes:['A','B','C'], desc:'Klasa = ostatni symbol. Pamięć nie jest potrzebna.',
+    sample:(T, c) => { const tok = randTok(T, 3); tok[T-1] = c; return {tok}; }, label:r => r.tok[r.tok.length-1]},
+  major:{name:'Więcej A czy B', group:'sym', D:3, classes:['więcej A','więcej B'], desc:'Trzeba liczyć A i B przez całą sekwencję. C nic nie znaczy.',
+    sample:(T, c) => reject(() => ({tok:randTok(T, 3)}), DATASETS.major.label, c, () => ({tok:Int8Array.from({length:T}, (_, t) => t === 0 ? c : 2)})),
+    label:r => { let a = 0, b = 0; for (const s of r.tok){ if (s === 0) a++; else if (s === 1) b++; } return a === b ? null : a > b ? 0 : 1; }},
+  pattern:{name:'Wzorzec A→B', group:'sym', D:3, classes:['brak A→B','jest A→B'], desc:'Czy gdzieś wystąpiło A, a zaraz po nim B. Wystarczy pamiętać poprzedni krok.',
+    sample:(T, c) => reject(() => ({tok:randTok(T, 3)}), DATASETS.pattern.label, c, () => { const tok = new Int8Array(T).fill(2); if (c){ tok[0] = 0; tok[1] = 1; } return {tok}; }),
+    label:r => hasAB(r.tok)},
+  parity:{name:'Parzystość A', group:'sym', D:3, classes:['parzysta','nieparzysta'], desc:'Czy liczba A jest parzysta. Każde A przełącza odpowiedź, więc łatwo się pomylić.',
+    sample:(T, c) => reject(() => ({tok:randTok(T, 2)}), DATASETS.parity.label, c, () => ({tok:new Int8Array(T).fill(1)})), label:r => cntA(r.tok) % 2},
+  wave:{name:'Kształt fali', group:'sig', D:1, classes:['sinus','prostokąt','piła'], desc:'Rozpoznaj kształt sygnału okresowego o losowej fazie.',
+    sample:(T, c) => { const P = U(T/2.2, T/1.1), ph = U(0, 2*Math.PI), v = new Float32Array(T);
+      for (let t=0; t<T; t++){ const f = 2*Math.PI*t/P + ph; v[t] = .8*(c === 0 ? Math.sin(f) : c === 1 ? Math.sign(Math.sin(f)) : ((f/(2*Math.PI)) % 1)*2 - 1); } return {v}; }, label:null},
+  trend:{name:'Trend', group:'sig', D:1, classes:['rośnie','płasko','maleje'], desc:'Czy sygnał w czasie rośnie, stoi czy maleje.',
+    sample:(T, c) => { const a = U(-.3, .3), s = c === 0 ? U(.5, .9) : c === 1 ? 0 : -U(.5, .9), w = U(0, 6), v = new Float32Array(T);
+      for (let t=0; t<T; t++) v[t] = a + s*(t/(T-1) - .5)*1.6 + .12*Math.sin(w + t*1.7); return {v}; }, label:null},
+  spike:{name:'Gdzie był impuls', group:'sig', D:1, classes:['na początku','na końcu'], desc:'Jeden impuls w pierwszej albo drugiej połowie sekwencji.',
+    sample:(T, c) => { const v = new Float32Array(T), h = Math.ceil(T/2); v[c === 0 ? ri(0, h-1) : ri(h, T-1)] = U(.8, 1.2); return {v}; },
+    label:r => { let b = 0; for (let t=1; t<r.v.length; t++) if (Math.abs(r.v[t]) > Math.abs(r.v[b])) b = t; return Math.abs(r.v[b]) < .5 ? null : b < Math.ceil(r.v.length/2) ? 0 : 1; }},
+  freq:{name:'Częstotliwość', group:'sig', D:1, classes:['wolna','szybka'], desc:'Wolny albo szybki sinus. Jeden punkt nie wystarczy, liczy się zmiana.',
+    sample:(T, c) => { const P = c === 0 ? U(T*.8, T*1.4) : U(2.3, 3.3), ph = U(0, 2*Math.PI), v = new Float32Array(T);
+      for (let t=0; t<T; t++) v[t] = .8*Math.sin(2*Math.PI*t/P + ph); return {v}; }, label:null},
+  sum:{name:'Znak sumy', group:'sig', D:1, classes:['suma > 0','suma < 0'], desc:'Sieć musi sumować wartości przez cały czas.',
+    sample:(T, c) => reject(() => ({v:Float32Array.from({length:T}, () => randn()*.55)}), DATASETS.sum.label, c, () => ({v:new Float32Array(T).fill(c ? -.3 : .3)})),
+    label:r => r.v.reduce((a, b) => a + b, 0) > 0 ? 0 : 1}
+};
+function encode(ds, r, T, nz){
+  const D = ds.D, x = new Float32Array(T*D);
+  if (D === 3) for (let t=0; t<T; t++) x[t*3 + r.tok[t]] = 1; else for (let t=0; t<T; t++) x[t] = r.v[t];
+  if (nz > 0) for (let i=0; i<x.length; i++) x[i] += randn()*nz*.5;
+  return x;
+}
+function genSet(id, n, nz, T){
+  const ds = DATASETS[id], k = ds.classes.length, out = [];
+  for (let i=0; i<n; i++){ const c = i % k, r = ds.sample(T, c); out.push({x:encode(ds, r, T, nz), tok:r.tok || null, v:r.v || null, c, T}); }
+  return out;
+}
+
+/* ---------- model: warstwy rekurencyjne + głowica gęsta ---------- */
+function arch(m){
+  const out = []; let In = m.D;
+  for (const L of m.layers){ if (L.t === 'rnn'){ out.push({t:'rnn', In, H:L.h, rec:L.rec}); In = L.h; } else { out.push({t:'dense', In, N:L.n}); In = L.n; } }
+  out.push({t:'out', In, N:m.K});
+  return out;
+}
+const sigOf = m => m.layers.map(l => l.t + (l.h || l.n) + (l.rec === false ? 'x' : '')).join('|') + '|D' + m.D + '|K' + m.K + '|T' + S.T;
+function fitWeights(m, fresh){
+  const A = arch(m), old = fresh ? [] : (m.P || []);
+  const pools = {rnn:old.filter(p => p.t === 'rnn'), dense:old.filter(p => p.t === 'dense'), out:old.filter(p => p.t === 'out')}, cnt = {rnn:0, dense:0, out:0};
+  m.P = A.map(L => {
+    const o = pools[L.t][cnt[L.t]++];
+    if (L.t === 'rnn'){
+      const H = L.H, In = L.In, Wx = new Float32Array(H*In), Wh = new Float32Array(H*H), b = new Float32Array(H), sx = Math.sqrt(1/In);
+      for (let q=0; q<Wx.length; q++) Wx[q] = randn()*sx;
+      if (L.rec){ if (m.init === 'eye') for (let j=0; j<H; j++) Wh[j*H+j] = .9; else { const sh = .9/Math.sqrt(H); for (let q=0; q<Wh.length; q++) Wh[q] = randn()*sh; } }
+      if (o) for (let j=0; j<Math.min(H, o.H); j++){
+        b[j] = o.b[j];
+        for (let k=0; k<Math.min(In, o.In); k++) Wx[j*In+k] = o.Wx[j*o.In+k];
+        if (L.rec && o.rec) for (let k=0; k<Math.min(H, o.H); k++) Wh[j*H+k] = o.Wh[j*o.H+k];
+      }
+      return {t:'rnn', H, In, Wx, Wh, b, rec:L.rec};
+    }
+    const In = L.In, N = L.N, sc = Math.sqrt((m.act === 'relu' && L.t !== 'out' ? 2 : 1)/In), W = new Float32Array(N*In), b = new Float32Array(N);
+    for (let q=0; q<W.length; q++) W[q] = randn()*sc;
+    if (o) for (let j=0; j<Math.min(N, o.N); j++){ b[j] = o.b[j]; for (let k=0; k<Math.min(In, o.In); k++) W[j*In+k] = o.W[j*o.In+k]; }
+    return {t:L.t, N, In, W, b};
+  });
+  m.ver++; m.T = null; m.evalVer = -1;
+}
+function mk(name, layers, init){
+  const m = {id:uid(), name, layers:layers.map(l => ({...l})), init:init || 'rand', act:'tanh', lr:0.01, l2:0, batch:10, K:2, D:3, P:null, epoch:0, hist:[], histStep:1, ver:0, last:null, evalVer:-1, T:null};
+  fitWeights(m, true);
+  return m;
+}
+function defaultModels(){
+  return [
+    mk('Bez pamięci', [{t:'rnn', h:8, rec:false}]),
+    mk('Mała RNN', [{t:'rnn', h:4, rec:true}]),
+    mk('RNN 8', [{t:'rnn', h:8, rec:true}]),
+    mk('RNN 8 · Wₕ = 0,9·I', [{t:'rnn', h:8, rec:true}], 'eye'),
+    mk('Głęboka RNN', [{t:'rnn', h:8, rec:true}, {t:'rnn', h:8, rec:true}, {t:'dense', n:8}])
+  ];
+}
+const KEYS = ['Wx', 'Wh', 'W', 'b'];
+const nParams = m => m.P.reduce((a, p) => a + (p.t === 'rnn' ? p.Wx.length + (p.rec ? p.Wh.length : 0) + p.b.length : p.W.length + p.b.length), 0);
+const rnnIdx = m => m.P.map((p, i) => p.t === 'rnn' ? i : -1).filter(i => i >= 0);
+function makeWS(m){
+  const T = S.T;
+  return {sig:sigOf(m), x:null, out:null, dn:new Float32Array(MAXH), dz:new Float32Array(MAXH),
+    L:m.P.map(p => p.t === 'rnn' ? {h:new Float32Array((T+1)*p.H), z:new Float32Array(T*p.H), dh:new Float32Array((T+1)*p.H)} : {z:new Float32Array(p.N), a:new Float32Array(p.N), g:new Float32Array(p.N)})};
+}
+function forward(m, x, ws){
+  const A = m.P, T = S.T, aid = ACTS[m.act].id;
+  ws.x = x;
+  let inArr = x, inStride = m.D, inBase = 0, vec = null, vecOff = 0;
+  for (let i=0; i<A.length; i++){
+    const P = A[i], Q = ws.L[i];
+    if (P.t === 'rnn'){
+      const H = P.H, In = P.In, h = Q.h, z = Q.z, Wx = P.Wx, Wh = P.Wh, b = P.b;
+      for (let j=0; j<H; j++) h[j] = 0;
+      for (let t=0; t<T; t++){
+        const io = inBase + t*inStride, ho = t*H, no = (t+1)*H;
+        for (let j=0; j<H; j++){
+          let s = b[j]; const r = j*In;
+          for (let k=0; k<In; k++) s += Wx[r+k]*inArr[io+k];
+          if (P.rec){ const rh = j*H; for (let k=0; k<H; k++) s += Wh[rh+k]*h[ho+k]; }
+          z[ho+j] = s; h[no+j] = actF(aid, s);
+        }
+      }
+      inArr = h; inStride = H; inBase = H; vec = h; vecOff = T*H;
+    } else {
+      const N = P.N, In = P.In, z = Q.z, a = Q.a, out = P.t === 'out';
+      for (let j=0; j<N; j++){ let s = P.b[j]; const r = j*In; for (let k=0; k<In; k++) s += P.W[r+k]*vec[vecOff+k]; z[j] = s; a[j] = out ? s : actF(aid, s); }
+      if (out){ let mx = -Infinity; for (let j=0; j<N; j++) if (a[j] > mx) mx = a[j]; let t = 0; for (let j=0; j<N; j++){ a[j] = Math.exp(a[j]-mx); t += a[j]; } for (let j=0; j<N; j++) a[j] /= t; }
+      vec = a; vecOff = 0;
+    }
+  }
+  ws.out = vec;
+  return ws;
+}
+// propagacja wsteczna w czasie (BPTT); G = akumulatory gradientów (albo null), gn = normy ‖∂L/∂hₜ‖ górnej warstwy RNN
+function backward(m, ws, c, G, gn){
+  const A = m.P, n = A.length, T = S.T, aid = ACTS[m.act].id;
+  { const Q = ws.L[n-1]; for (let j=0; j<A[n-1].N; j++) Q.g[j] = Q.a[j] - (j === c ? 1 : 0); }
+  let top = -1;
+  for (let i=n-1; i>=0; i--){
+    const P = A[i]; if (P.t === 'rnn'){ top = i; break; }
+    const Q = ws.L[i], g = Q.g, prev = A[i-1], In = P.In;
+    const inVec = prev.t === 'rnn' ? ws.L[i-1].h : ws.L[i-1].a, inOff = prev.t === 'rnn' ? T*prev.H : 0;
+    if (G){ const gW = G[i].W, gb = G[i].b; for (let j=0; j<P.N; j++){ const d = g[j]; gb[j] += d; const r = j*In; for (let k=0; k<In; k++) gW[r+k] += d*inVec[inOff+k]; } }
+    if (prev.t === 'rnn'){ const dh = ws.L[i-1].dh; dh.fill(0); for (let k=0; k<In; k++){ let s = 0; for (let j=0; j<P.N; j++) s += P.W[j*In+k]*g[j]; dh[T*prev.H+k] = s; } }
+    else { const Qp = ws.L[i-1]; for (let k=0; k<In; k++){ let s = 0; for (let j=0; j<P.N; j++) s += P.W[j*In+k]*g[j]; Qp.g[k] = s*actD(aid, Qp.z[k], Qp.a[k]); } }
+  }
+  const dn = ws.dn, dz = ws.dz;
+  for (let i=top; i>=0; i--){
+    const P = A[i], Q = ws.L[i], H = P.H, In = P.In, dh = Q.dh, h = Q.h, z = Q.z;
+    const lower = i > 0 ? ws.L[i-1] : null; if (lower) lower.dh.fill(0);
+    const inArr = lower ? lower.h : ws.x, inStride = lower ? In : m.D, inBase = lower ? In : 0;
+    dn.fill(0);
+    for (let t=T-1; t>=0; t--){
+      const ho = (t+1)*H, po = t*H, io = inBase + t*inStride;
+      let nrm = 0;
+      for (let j=0; j<H; j++){ const d = dh[ho+j] + dn[j]; nrm += d*d; dz[j] = d*actD(aid, z[po+j], h[ho+j]); }
+      if (gn && i === top) gn[t] += Math.sqrt(nrm);
+      if (G){
+        const Gi = G[i];
+        for (let j=0; j<H; j++){
+          const d = dz[j]; if (d === 0) continue; Gi.b[j] += d;
+          const r = j*In; for (let k=0; k<In; k++) Gi.Wx[r+k] += d*inArr[io+k];
+          if (P.rec){ const rh = j*H; for (let k=0; k<H; k++) Gi.Wh[rh+k] += d*h[po+k]; }
+        }
+      }
+      if (P.rec) for (let k=0; k<H; k++){ let s = 0; for (let j=0; j<H; j++) s += P.Wh[j*H+k]*dz[j]; dn[k] = s; }
+      else dn.fill(0);
+      if (lower) for (let k=0; k<In; k++){ let s = 0; for (let j=0; j<H; j++) s += P.Wx[j*In+k]*dz[j]; lower.dh[(t+1)*In+k] += s; }
+    }
+  }
+}
+function trainState(m){
+  if (!m.T || m.T.sig !== sigOf(m)){
+    const mkG = () => m.P.map(p => { const o = {}; for (const k of KEYS) if (p[k]) o[k] = new Float32Array(p[k].length); return o; });
+    m.T = {sig:sigOf(m), ws:makeWS(m), G:mkG(), M:mkG(), V:mkG(), step:0, order:null, cur:0, dv:-1};
+  }
+  return m.T;
+}
+function trainBatch(m, T, data, from, cnt){
+  const G = T.G;
+  for (const g of G) for (const k in g) g[k].fill(0);
+  for (let t=from; t<from+cnt; t++){ const p = data[T.order[t]]; forward(m, p.x, T.ws); backward(m, T.ws, p.c, G, null); }
+  // średnia + L2 + przycięcie normy gradientu (RNN łatwo „wybucha”) + Adam
+  let tot = 0;
+  m.P.forEach((p, i) => { for (const k in G[i]){ if (k === 'Wh' && !p.rec) continue; const g = G[i][k], w = p[k], l2 = k === 'b' ? 0 : m.l2; for (let q=0; q<g.length; q++){ g[q] = g[q]/cnt + l2*w[q]; tot += g[q]*g[q]; } } });
+  const sc = Math.min(1, 5/Math.sqrt(tot + 1e-12)), b1 = .9, b2 = .999; T.step++;
+  const bc1 = 1 - Math.pow(b1, T.step), bc2 = 1 - Math.pow(b2, T.step), lr = m.lr;
+  m.P.forEach((p, i) => { for (const k in G[i]){
+    if (k === 'Wh' && !p.rec) continue;
+    const g = G[i][k], w = p[k], M = T.M[i][k], V = T.V[i][k];
+    for (let q=0; q<g.length; q++){ const gq = g[q]*sc; M[q] = b1*M[q] + (1-b1)*gq; V[q] = b2*V[q] + (1-b2)*gq*gq; w[q] -= lr*(M[q]/bc1)/(Math.sqrt(V[q]/bc2) + 1e-8); }
+  } });
+  m.ver++;
+}
+function ensureOrder(T){ if (!T.order || T.dv !== S.dataVer || T.cur >= S.train.length){ T.order = shuffle(S.train.map((_, i) => i)); T.cur = 0; T.dv = S.dataVer; } }
+function trainSamples(m, n){
+  const data = S.train; if (!data.length) return 0;
+  const T = trainState(m); let done = 0;
+  while (done < n){
+    ensureOrder(T);
+    const bs = Math.min(m.batch, data.length - T.cur);
+    trainBatch(m, T, data, T.cur, bs);
+    T.cur += bs; done += bs;
+    if (T.cur >= data.length){ m.epoch++; record(m); }
+  }
+  return done;
+}
+function evaluate(m){
+  if (!m.evWS || m.evWS.sig !== sigOf(m)) m.evWS = makeWS(m);
+  const ws = m.evWS, K = m.K;
+  const run = (data, keep) => {
+    let loss = 0, ok = 0; const preds = keep ? new Int8Array(data.length) : null, cm = keep ? Array.from({length:K}, () => new Array(K).fill(0)) : null;
+    for (let i=0; i<data.length; i++){
+      const p = data[i], out = forward(m, p.x, ws).out;
+      loss += -Math.log(Math.max(1e-7, out[p.c] || 1e-7));
+      let b = 0; for (let k=1; k<out.length; k++) if (out[k] > out[b]) b = k;
+      if (b === p.c) ok++;
+      if (keep){ preds[i] = b; if (p.c < K) cm[p.c][b]++; }
+    }
+    return {loss:data.length ? loss/data.length : NaN, acc:data.length ? ok/data.length : NaN, preds, cm};
+  };
+  m.last = {tr:run(S.train.length > 240 ? S.train.slice(0, 240) : S.train, false), te:run(S.test, true)};
+  m.evalVer = m.ver;
+}
+function record(m){
+  if (!S.train.length) return;
+  evaluate(m);
+  if ((m.epoch % m.histStep) !== 0) return;
+  m.hist.push([m.last.tr.loss, m.last.te.loss]);
+  if (m.hist.length > 1200){ m.hist = m.hist.filter((_, i) => i%2 === 0); m.histStep *= 2; }
+}
+
+/* ---------- stan ---------- */
+const S = {
+  ds:null, dtab:'sym', noise:.1, T:10, n:400, train:[], test:[], dataVer:0,
+  models:defaultModels(), activeId:null,
+  mode:'train', playing:false, speedIdx:5, acc:0,
+  probe:{x:new Float32Array(30), tok:null, v:null, c:null, src:'draw'}, stage:null,
+  knobs:false, sel:{kind:'h', r:0, t:0}, cellPlay:false, cellT:0,
+  hover:null, dirty:true, thumbTick:0, vws:null, gn:new Float32Array(32)
+};
+const active = () => S.models.find(m => m.id === S.activeId) || null;
+const curDs = () => S.ds ? DATASETS[S.ds] : null;
+const nK = () => S.ds ? DATASETS[S.ds].classes.length : 2;
+const nD = () => S.ds ? DATASETS[S.ds].D : 3;
+const imgRate = n => { const sp = SPEEDS[S.speedIdx]; return sp.u === 'i' ? sp.v : sp.v*n; };
+
+/* ---------- kolory ---------- */
+let C = {};
+function hex(h){h=h.trim().replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  ['pos','neg','c2','c3','c4','heat0','ink','muted','panel','line','sel','sunk','mem'].forEach(k => { C[k+'S'] = cs.getPropertyValue('--'+k).trim(); C[k] = hex(C[k+'S']); });
+  C.pal = [C.neg, C.pos, C.c2, C.c3, C.c4]; C.palS = [C.negS, C.posS, C.c2S, C.c3S, C.c4S];
+  C.symS = [C.negS, C.posS, C.c2S];   // A, B, C mają te same kolory co klasy 0, 1, 2
+}
+function heat(v, out, o){
+  v = Math.max(-1, Math.min(1, v));
+  const t = Math.abs(v), c = v >= 0 ? C.pos : C.neg, z = C.heat0;
+  out[o]=z[0]+(c[0]-z[0])*t; out[o+1]=z[1]+(c[1]-z[1])*t; out[o+2]=z[2]+(c[2]-z[2])*t; out[o+3]=255;
+}
+const rgb = a => `rgb(${a[0]|0},${a[1]|0},${a[2]|0})`;
+const heatCss = v => { const o = [0,0,0,0]; heat(v, o, 0); return rgb(o); };
+function paintMap(cv, arr, w, h, sc, off){
+  off = off || 0;
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; cv._img = null; }
+  const ctx = cv.getContext('2d');
+  if (!cv._img) cv._img = ctx.createImageData(w, h);
+  const d = cv._img.data, n = w*h;
+  for (let i=0; i<n; i++) heat(arr[off+i]*sc, d, i*4);
+  ctx.putImageData(cv._img, 0, 0);
+}
+function maxAbs(arr, off, n){ let mx = 1e-6; off = off || 0; n = n === undefined ? arr.length - off : n; for (let i=off; i<off+n; i++){ const a = Math.abs(arr[i]); if (a > mx) mx = a; } return mx; }
+const tmpC = document.createElement('canvas');
+const argmax3 = (x, o) => x[o] >= x[o+1] && x[o] >= x[o+2] ? 0 : x[o+1] >= x[o+2] ? 1 : 2;
+// rysuje sekwencję: symbole jako kolorowe paski, sygnał jako linię
+function drawSeq(ctx, x, T, D, X, Y, W, H, dpr){
+  if (D === 3){
+    const cw = W/T;
+    for (let t=0; t<T; t++){ const k = argmax3(x, t*3); ctx.globalAlpha = .3 + .7*clamp01(x[t*3+k]); ctx.fillStyle = C.symS[k]; ctx.fillRect(X + t*cw + .5, Y, Math.max(1, cw - 1.5*dpr), H); }
+    ctx.globalAlpha = 1;
+  } else {
+    const cy = Y + H/2, sy = H/2/1.3, cw = W/T;
+    ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(X, cy); ctx.lineTo(X + W, cy); ctx.stroke();
+    ctx.strokeStyle = C.inkS; ctx.lineWidth = 1.6*dpr; ctx.lineJoin = 'round'; ctx.beginPath();
+    for (let t=0; t<T; t++){ const px = X + (t + .5)*cw, py = cy - Math.max(-1.3, Math.min(1.3, x[t]))*sy; t ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke();
+    if (cw > 6*dpr){ ctx.fillStyle = C.inkS; for (let t=0; t<T; t++){ ctx.beginPath(); ctx.arc(X + (t + .5)*cw, cy - Math.max(-1.3, Math.min(1.3, x[t]))*sy, 1.6*dpr, 0, 7); ctx.fill(); } }
+  }
+}
+
+/* ---------- dane ---------- */
+function genData(){
+  const pts = S.ds ? shuffle(genSet(S.ds, S.n, S.noise, S.T)) : [];
+  const nt = Math.round(pts.length*TEST_FRAC);
+  S.test = pts.slice(0, nt); S.train = pts.slice(nt); S.dataVer++;
+  $('#dcount').textContent = S.ds ? `${S.train.length} treningowych · ${S.test.length} testowych` : '';
+  if (S.test.length) setProbe(S.test[0], 'test'); else S.probe = {x:new Float32Array(S.T*nD()), tok:null, v:null, c:null, src:'draw'};
+  S.models.forEach(m => { if (m.evWS) m.evWS = null; });
+  S.vws = null;
+  const m = active(); if (m){ m.T = null; m.hist = []; m.histStep = 1; m.evalVer = -1; record(m); }
+  if (S.sel.t >= S.T) S.sel.t = S.T - 1;
+  renderDataSlot(); buildNetwork();
+  S.dirty = true;
+}
+function setProbe(p, src){
+  S.probe = {x:Float32Array.from(p.x), tok:p.tok ? Int8Array.from(p.tok) : null, v:p.v ? Float32Array.from(p.v) : null, c:p.c, src};
+  if (S.stage !== null) S.stage = 0;
+  if (S.mode === 'infer') buildSeqEditor();
+  S.dirty = true;
+}
+const clsName = c => { const ds = curDs(); return ds ? ds.classes[c] : `klasa ${c}`; };
+const cls = c => `<span class="sw c${c}"></span>${clsName(c)}`;
+// po edycji próbki: wyczyść kodowanie i policz prawdziwą etykietę, jeśli zbiór ma regułę
+function reencode(){
+  const ds = curDs(); if (!ds) return;
+  const T = S.T, p = S.probe;
+  p.x = new Float32Array(T*ds.D);
+  if (ds.D === 3) for (let t=0; t<T; t++) p.x[t*3 + p.tok[t]] = 1; else for (let t=0; t<T; t++) p.x[t] = p.v[t];
+  p.c = ds.label ? ds.label(p) : null; p.src = 'draw';
+  if (p.c === undefined) p.c = null;
+  S.dirty = true;
+}
+function ensureEditable(){
+  const ds = curDs(), p = S.probe, T = S.T; if (!ds) return false;
+  if (ds.D === 3 && (!p.tok || p.tok.length !== T)){ p.tok = new Int8Array(T); for (let t=0; t<T; t++) p.tok[t] = argmax3(p.x, t*3); }
+  if (ds.D === 1 && (!p.v || p.v.length !== T)) p.v = Float32Array.from(p.x.subarray(0, T));
+  return true;
+}
+function buildSeqEditor(){
+  const box = $('#seqEd'), ds = curDs();
+  box.innerHTML = '';
+  if (!ds) return;
+  ensureEditable();
+  if (ds.D === 3){
+    const wrap = document.createElement('div'); wrap.className = 'toks lab';
+    for (let t=0; t<S.T; t++){
+      const b = document.createElement('button'); b.className = 'tok'; b.setAttribute('aria-label', `krok ${t+1}`);
+      b.innerHTML = `${SYM[S.probe.tok[t]]}<small>${t+1}</small>`; b.style.background = C.symS[S.probe.tok[t]];
+      b.onclick = () => { S.probe.tok[t] = (S.probe.tok[t] + 1) % 3; reencode(); b.firstChild.textContent = SYM[S.probe.tok[t]]; b.style.background = C.symS[S.probe.tok[t]]; renderDataSlot(); };
+      wrap.append(b);
+    }
+    box.append(wrap);
+  } else {
+    const cv = document.createElement('canvas'); cv.id = 'sigEd'; box.append(cv);
+    const set = ev => {
+      const r = cv.getBoundingClientRect(), t = Math.max(0, Math.min(S.T-1, Math.floor((ev.clientX - r.left)/r.width*S.T)));
+      S.probe.v[t] = Math.max(-1.3, Math.min(1.3, -((ev.clientY - r.top)/r.height*2 - 1)*1.3));
+      reencode(); renderDataSlot();
+    };
+    cv.addEventListener('pointerdown', e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); set(e); const mv = ev => set(ev), up = () => { cv.removeEventListener('pointermove', mv); cv.removeEventListener('pointerup', up); }; cv.addEventListener('pointermove', mv); cv.addEventListener('pointerup', up); });
+  }
+}
+function renderDataSlot(){
+  const inf = S.mode === 'infer', ds = curDs();
+  $('#dempty').hidden = !!ds; $('#dname').hidden = !ds; $('#dax').hidden = !ds; $('#dcls').hidden = !ds;
+  $('#dprev').hidden = !ds || inf; $('#seqEd').hidden = !ds || !inf;
+  if (!ds) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (!inf){
+    const cv = $('#dprev'), W = Math.round((cv.clientWidth || 220)*dpr), rows = 8, rh = 22*dpr, gap = 5*dpr, H = rows*(rh + gap) + gap;
+    if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; cv.style.height = (H/dpr) + 'px'; }
+    const ctx = cv.getContext('2d'); ctx.fillStyle = C.panelS; ctx.fillRect(0, 0, W, H);
+    for (let i=0; i<rows && i<S.train.length; i++){
+      const p = S.train[i], y = gap + i*(rh + gap);
+      ctx.fillStyle = C.palS[p.c]; ctx.beginPath(); ctx.arc(9*dpr, y + rh/2, 4*dpr, 0, 7); ctx.fill();
+      drawSeq(ctx, p.x, p.T, ds.D, 20*dpr, y, W - 26*dpr, rh, dpr);
+    }
+  } else if (ds.D === 1){
+    const cv = $('#sigEd'); if (cv){
+      const W = Math.round(cv.clientWidth*dpr), H = Math.round(cv.clientHeight*dpr);
+      if (W){ if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+        const ctx = cv.getContext('2d'); ctx.fillStyle = C.panelS; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr; for (let t=1; t<S.T; t++){ const x = Math.round(t*W/S.T) + .5; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        drawSeq(ctx, S.probe.x, S.T, 1, 0, 6*dpr, W, H - 12*dpr, dpr);
+        if (S.probe.c !== null){ ctx.strokeStyle = C.palS[S.probe.c]; ctx.lineWidth = 3*dpr; ctx.strokeRect(1.5*dpr, 1.5*dpr, W - 3*dpr, H - 3*dpr); }
+      }
+    }
+  }
+  $('#dname').textContent = ds.name + (inf ? ' · jedna sekwencja' : '');
+  $('#dax').textContent = ds.D === 3 ? `T = ${S.T} kroków · xₜ = jeden z 3 symboli (one-hot)` : `T = ${S.T} kroków · xₜ = jedna liczba`;
+  $('#dcls').innerHTML = ds.classes.map((_, c) => `<span>${cls(c)}</span>`).join('') + `<span class="muted" style="flex-basis:100%;font-size:11.5px">${ds.desc}</span>`;
+  if (inf){
+    const src = S.probe.src === 'test' ? 'ze zbioru testowego' : S.probe.src === 'train' ? 'ze zbioru treningowego' : 'sekwencja zmieniona ręcznie';
+    $('#dtruth').innerHTML = (S.probe.c === null ? 'etykieta: nieokreślona (np. remis albo zbiór bez reguły)' : 'etykieta: ' + cls(S.probe.c)) + '<br>' + src;
+    $('#infHint').textContent = ds.D === 3 ? 'Kliknij symbol, aby go zmienić (A → B → C). Zobacz, od którego kroku zmieniają się stany h w programie.' : 'Rysuj po wykresie, aby zmienić wartości sygnału w kolejnych krokach.';
+  }
+}
+function makeDataCard(id){
+  const ds = DATASETS[id], c = document.createElement('div'); c.className = 'card dcard'; c.dataset.ds = id; c.tabIndex = 0;
+  const k = ds.classes.length;
+  c.innerHTML = `<span class="grip"></span><canvas width="198" height="198"></canvas><div class="nm"></div><div class="dk">${Array.from({length:k}, (_, i) => `<span class="sw c${i}"></span>`).join('')}&nbsp;${k} ${k >= 5 ? 'klas' : 'klasy'}</div>`;
+  c.querySelector('.nm').textContent = ds.name;
+  c.title = ds.desc;
+  const cv = c.querySelector('canvas'), ctx = cv.getContext('2d'), per = k === 2 ? 3 : 2, rows = k*per, gap = 5, rh = (198 - gap*(rows+1))/rows;
+  ctx.fillStyle = C.sunkS; ctx.fillRect(0, 0, 198, 198);
+  const smp = []; for (let q=0; q<per; q++) for (let cc=0; cc<k; cc++){ const r = ds.sample(10, cc); smp.push({x:encode(ds, r, 10, 0), c:cc}); }
+  smp.sort((a, b) => a.c - b.c).forEach((p, i) => { const y = gap + i*(rh + gap); ctx.fillStyle = C.palS[p.c]; ctx.fillRect(4, y, 4, rh); drawSeq(ctx, p.x, 10, ds.D, 14, y, 178, rh, 1); });
+  return c;
+}
+function selectDs(id){ S.ds = id; S.models.forEach(adapt); S.sel = {kind:'h', r:0, t:Math.min(S.sel.t, S.T-1)}; genData(); renderDataLib(); structural(); if (S.mode === 'infer') buildSeqEditor(); }
+function adapt(m){ if (!S.ds) return; const K = nK(), D = nD(); if (m.K === K && m.D === D) return; m.K = K; m.D = D; fitWeights(m, false); m.hist = []; m.histStep = 1; m.last = null; }
+function renderDataLib(){
+  const g = $('#dlibGrid'); g.innerHTML = '';
+  const ids = Object.keys(DATASETS).filter(id => DATASETS[id].group === S.dtab);
+  $('#dlibCnt').textContent = ids.length;
+  document.querySelectorAll('#dtabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.tab === S.dtab));
+  for (const id of ids){
+    const c = makeDataCard(id);
+    if (id === S.ds){ c.classList.add('in'); const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'w danych'; c.append(b); }
+    else {
+      c.addEventListener('pointerdown', e => dragGeneric(e, {ghost:() => makeDataCard(id), target:$('#dataPanel'), label:'Upuść tutaj → Dane', drop:() => selectDs(id), click:() => selectDs(id), hold:true}));
+      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); selectDs(id); } });
+    }
+    g.append(c);
+  }
+}
+
+/* ---------- sieć rozwinięta w czasie ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+let E = null, edges = [];
+const hpx = H => H <= 4 ? 12 : H <= 8 ? 9 : 6;
+function miniBtn(txt, label, fn, dis){ const b = document.createElement('button'); b.textContent = txt; b.setAttribute('aria-label', label); b.title = label; b.disabled = !!dis; b.onclick = fn; return b; }
+function buildNetwork(){
+  const m = active(), net = $('#net');
+  net.innerHTML = ''; edges = []; E = null;
+  $('#empty').hidden = !!m; $('#loaded').style.display = m ? 'flex' : 'none'; $('#chip').hidden = !m;
+  if (!m) return;
+  const T = S.T, R = rnnIdx(m), ds = curDs(), D = m.D;
+  const svg = document.createElementNS(NS, 'svg'); net.append(svg);
+  const grid = document.createElement('div'); grid.className = 'ugrid';
+  grid.style.gridTemplateColumns = `auto repeat(${T}, 26px)`;
+  E = {svg, grid, h:[], x:[], g:[], head:[], R};
+  if (S.sel.kind === 'h' && S.sel.r >= R.length) S.sel.r = R.length - 1;
+  // wiersze RNN od góry (ostatnia warstwa) do dołu (pierwsza)
+  for (let r=R.length-1; r>=0; r--){
+    const i = R[r], L = m.layers[i], P = m.P[i];
+    const lab = document.createElement('div'); lab.className = 'rlab';
+    lab.innerHTML = `<span>RNN ${r+1} · hₜ</span><span class="shp">${P.H} neuronów</span>`;
+    const mini = document.createElement('span'); mini.className = 'mini';
+    const cnt = document.createElement('span'); cnt.textContent = L.h;
+    mini.append(
+      miniBtn('−', 'Mniej neuronów', () => { L.h = Math.max(1, L.h - (L.h > 8 ? 4 : 1)); fitWeights(m, false); structural(); }, L.h <= 1), cnt,
+      miniBtn('+', 'Więcej neuronów', () => { L.h = Math.min(MAXH, L.h + (L.h >= 8 ? 4 : 1)); fitWeights(m, false); structural(); }, L.h >= MAXH));
+    const mem = miniBtn('↻', L.rec ? 'Pamięć włączona: kliknij, aby odciąć Wₕ' : 'Pamięć wyłączona: kliknij, aby włączyć Wₕ', () => { L.rec = !L.rec; fitWeights(m, false); structural(); });
+    mem.setAttribute('aria-pressed', L.rec); mini.append(mem);
+    const rx = miniBtn('×', 'Usuń warstwę', () => { m.layers.splice(i, 1); fitWeights(m, false); structural(); }, R.length <= 1); rx.classList.add('x'); mini.append(rx);
+    lab.append(mini); grid.append(lab);
+    E.h[r] = [];
+    for (let t=0; t<T; t++){
+      const c = document.createElement('div'); c.className = 'hc'; c.tabIndex = 0; c.style.height = (P.H*hpx(P.H)) + 'px';
+      const cv = document.createElement('canvas'); c.append(cv);
+      c.onclick = () => selectCell(r, t);
+      c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); selectCell(r, t); } };
+      c.onmouseenter = () => { S.hover = {r, t}; showCellTip(r, t, c); S.dirty = true; };
+      c.onmouseleave = () => { S.hover = null; hideTip(); S.dirty = true; };
+      grid.append(c); E.h[r][t] = {el:c, cv};
+    }
+  }
+  // wejście
+  const xl = document.createElement('div'); xl.className = 'rlab'; xl.innerHTML = `<span>Wejście · xₜ</span><span class="shp">${D === 3 ? 'symbol (3)' : 'liczba (1)'}</span>`; grid.append(xl);
+  for (let t=0; t<T; t++){ const c = document.createElement('div'); c.className = 'xc' + (D === 3 ? ' sym' : ''); const bar = document.createElement('i'); if (D === 1) c.append(bar); grid.append(c); E.x[t] = {el:c, bar}; }
+  // oś czasu
+  grid.append(document.createElement('span'));
+  for (let t=0; t<T; t++){ const s = document.createElement('span'); s.className = 'tl'; s.textContent = `t=${t+1}`; grid.append(s); }
+  // gradient w czasie
+  const gl = document.createElement('div'); gl.className = 'rlab'; gl.innerHTML = `<span>‖∂L/∂hₜ‖</span><span class="shp" style="color:var(--muted)">gradient RNN ${R.length}</span>`; gl.title = 'Jak silny sygnał błędu dociera do stanu hₜ ostatniej warstwy RNN. Zanikanie w lewo = sieć słabo uczy się zależności sprzed wielu kroków.'; grid.append(gl);
+  for (let t=0; t<T; t++){ const c = document.createElement('div'); c.className = 'gcell'; const b = document.createElement('i'); c.append(b); grid.append(c); E.g[t] = b; }
+  net.append(grid);
+  // głowica: gęste + wyjście
+  const head = document.createElement('div'); head.className = 'head';
+  let nd = 0;
+  m.P.forEach((P, i) => {
+    if (P.t === 'rnn') return;
+    const col = document.createElement('div'); col.className = 'col';
+    const hd = document.createElement('div'); hd.className = 'colhead';
+    hd.append(document.createTextNode(P.t === 'out' ? 'Wyjście' : `Gęsta ${++nd}`));
+    const shp = document.createElement('span'); shp.className = 'shp'; shp.textContent = P.t === 'out' ? 'softmax' : P.N; hd.append(shp);
+    if (P.t === 'dense'){
+      const L = m.layers[i], mini = document.createElement('span'); mini.className = 'mini';
+      mini.append(miniBtn('−', 'Mniej neuronów', () => { L.n = Math.max(1, L.n - (L.n > 8 ? 4 : 1)); fitWeights(m, false); structural(); }, L.n <= 1),
+        Object.assign(document.createElement('span'), {textContent:L.n}),
+        miniBtn('+', 'Więcej neuronów', () => { L.n = Math.min(MAXN, L.n + (L.n >= 8 ? 4 : 1)); fitWeights(m, false); structural(); }, L.n >= MAXN));
+      const x = miniBtn('×', 'Usuń warstwę', () => { m.layers.splice(i, 1); fitWeights(m, false); structural(); }); x.classList.add('x'); mini.append(x);
+      hd.append(mini);
+    }
+    const us = document.createElement('div'); us.className = 'units';
+    const hi = E.head.length; E.head[hi] = {i, col, u:[]};
+    for (let j=0; j<P.N; j++){
+      const u = document.createElement('div'); u.className = 'unit'; u.tabIndex = 0;
+      let row = u, ov = null, val = null;
+      if (P.t === 'out'){ row = document.createElement('div'); row.className = 'orow'; const lb = document.createElement('span'); lb.className = 'ol'; lb.innerHTML = cls(j); ov = document.createElement('span'); ov.className = 'ov'; row.append(u, lb, ov); }
+      else { const px = P.N > 16 ? 10 : P.N > 8 ? 14 : 18; u.style.width = u.style.height = px + 'px'; val = document.createElement('span'); val.className = 'val'; u.append(val); }
+      u.onclick = () => { S.sel = {kind:'head', hi, j}; buildInspector(); S.dirty = true; };
+      u.onmouseenter = () => { S.hover = {hi, j}; showHeadTip(hi, j, u); S.dirty = true; };
+      u.onmouseleave = () => { S.hover = null; hideTip(); S.dirty = true; };
+      us.append(row); E.head[hi].u.push({el:u, row, ov, val});
+    }
+    col.append(hd, us); head.append(col);
+  });
+  net.append(head);
+  // krawędzie
+  const add = (type, a, b, meta) => { const el = document.createElementNS(NS, 'line'); svg.append(el); edges.push({type, a, b, el, ...meta}); };
+  for (let r=0; r<R.length; r++){
+    const P = m.P[R[r]];
+    for (let t=0; t<T; t++){
+      add('in', r === 0 ? E.x[t].el : E.h[r-1][t].el, E.h[r][t].el, {r, t});
+      if (t > 0) add(P.rec ? 'rec' : 'cut', E.h[r][t-1].el, E.h[r][t].el, {r, t});
+    }
+  }
+  const topCell = E.h[R.length-1][T-1].el;
+  E.head.forEach((hc, q) => {
+    hc.u.forEach((u, j) => {
+      if (q === 0) add('fan', topCell, u.el, {hi:q, j});
+      else E.head[q-1].u.forEach((pu, k) => add('w', pu.el, u.el, {hi:q, j, k}));
+    });
+  });
+  $('#addRnn').disabled = R.length >= MAXRNN;
+  $('#addDense').disabled = m.P.length - R.length - 1 >= MAXHEAD;
+  $('#act').value = m.act; $('#lr').value = String(m.lr); $('#l2').value = String(m.l2); $('#batch').value = String(m.batch);
+  requestAnimationFrame(layoutEdges);
+  buildInspector();
+}
+function layoutEdges(){
+  if (!E) return;
+  const net = $('#net'), nr = net.getBoundingClientRect();
+  E.svg.setAttribute('width', net.offsetWidth); E.svg.setAttribute('height', net.offsetHeight);
+  for (const e of edges){
+    const a = e.a.getBoundingClientRect(), b = e.b.getBoundingClientRect();
+    let x1, y1, x2, y2;
+    if (e.type === 'in'){ x1 = a.left + a.width/2 - nr.left; y1 = a.top - nr.top - 1; x2 = b.left + b.width/2 - nr.left; y2 = b.bottom - nr.top + 1; }
+    else { x1 = a.right - nr.left + 1; y1 = a.top + a.height/2 - nr.top; x2 = b.left - nr.left - 1; y2 = b.top + b.height/2 - nr.top; }
+    e.el.setAttribute('x1', x1); e.el.setAttribute('y1', y1); e.el.setAttribute('x2', x2); e.el.setAttribute('y2', y2);
+  }
+}
+function structural(){ S.hover = null; S.vws = null; hideTip(); buildNetwork(); renderLibrary(); S.dirty = true; }
+$('#addRnn').onclick = () => { const m = active(), R = rnnIdx(m); m.layers.splice(R[R.length-1] + 1, 0, {t:'rnn', h:8, rec:true}); fitWeights(m, false); structural(); };
+$('#addDense').onclick = () => { const m = active(); m.layers.push({t:'dense', n:8}); fitWeights(m, false); structural(); };
+function selectCell(r, t){ S.sel = {kind:'h', r, t}; S.cellPlay = false; buildInspector(); S.dirty = true; }
+
+/* wektory wkładów: Wₓ·inₜ i Wₕ·hₜ₋₁ dla warstwy r w kroku t */
+function contrib(m, pf, r, t){
+  const R = rnnIdx(m), i = R[r], P = m.P[i], H = P.H, In = P.In, Q = pf.L[i];
+  const inArr = r === 0 ? pf.x : pf.L[R[r-1]].h, io = r === 0 ? t*m.D : (t+1)*In;
+  const wx = new Float32Array(H), wh = new Float32Array(H);
+  for (let j=0; j<H; j++){
+    let s = 0; for (let k=0; k<In; k++) s += P.Wx[j*In+k]*inArr[io+k]; wx[j] = s;
+    let q = 0; if (P.rec) for (let k=0; k<H; k++) q += P.Wh[j*H+k]*Q.h[t*H+k]; wh[j] = q;
+  }
+  const inp = inArr.subarray(io, io + In), hp = Q.h.subarray(t*H, (t+1)*H), z = Q.z.subarray(t*H, (t+1)*H), h = Q.h.subarray((t+1)*H, (t+2)*H);
+  return {P, H, In, wx, wh, inp, hp, z, h};
+}
+const norm = v => Math.sqrt(v.reduce((a, b) => a + b*b, 0));
+
+/* ---------- podgląd komórki ---------- */
+let IN = null;
+function makeCell(get, set, disabled){
+  const el = document.createElement('div'); el.className = 'kc' + (disabled ? ' off' : ''); el.tabIndex = disabled ? -1 : 0;
+  if (disabled){ el.title = 'Pamięć tej warstwy jest wyłączona'; return el; }
+  el.title = 'Przeciągnij w górę/dół, kółko myszy lub strzałki. Dwuklik = 0.';
+  const change = v => { set(Math.max(-4, Math.min(4, v))); const m = active(); if (m) m.ver++; S.dirty = true; };
+  el.addEventListener('pointerdown', e => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId); let lastY = e.clientY;
+    const mv = ev => { const dy = ev.clientY - lastY; lastY = ev.clientY; change(get() - dy*(ev.shiftKey ? .004 : .02)); };
+    const up = () => { el.removeEventListener('pointermove', mv); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up); };
+    el.addEventListener('pointermove', mv); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  });
+  el.addEventListener('wheel', e => { e.preventDefault(); change(get() - Math.sign(e.deltaY)*(e.shiftKey ? .01 : .1)); }, {passive:false});
+  el.addEventListener('dblclick', () => change(0));
+  el.addEventListener('keydown', e => { if (e.key === 'ArrowUp' || e.key === 'ArrowRight'){ e.preventDefault(); change(get() + .1); } if (e.key === 'ArrowDown' || e.key === 'ArrowLeft'){ e.preventDefault(); change(get() - .1); } });
+  return el;
+}
+function fig(el, cap){ const f = document.createElement('figure'); f.className = 'cfig'; const fc = document.createElement('figcaption'); fc.innerHTML = cap; f.append(el, fc); return f; }
+function opEl(t){ const s = document.createElement('span'); s.className = 'op'; s.textContent = t; return s; }
+function vecCells(n, cs){ const g = document.createElement('div'); g.className = 'grid'; g.style.setProperty('--cs', cs + 'px'); const cells = []; for (let q=0; q<n; q++){ const c = document.createElement('div'); c.className = 'wc'; g.append(c); cells.push(c); } return {g, cells}; }
+function buildInspector(){
+  const box = $('#insp'), m = active();
+  IN = null; box.hidden = !(S.knobs && m);
+  if (box.hidden) return;
+  box.innerHTML = '';
+  const h = document.createElement('div'); h.className = 'insp-h';
+  if (S.sel.kind === 'head'){
+    const hc = E.head[S.sel.hi]; if (!hc){ S.sel = {kind:'h', r:0, t:S.T-1}; return buildInspector(); }
+    const P = m.P[hc.i];
+    h.innerHTML = `<b>${P.t === 'out' ? 'Wyjście · ' + clsName(S.sel.j) : 'Gęsta · n' + (S.sel.j+1)}</b><span class="fx" id="fx"></span>`;
+    const note = document.createElement('div'); note.className = 'hint'; note.style.margin = 0;
+    note.textContent = S.sel.hi === 0 ? `Głowica widzi tylko ostatni stan h_T (${P.In} liczb). Cała wiedza o sekwencji musi się w nim zmieścić.` : `Neuron ma ${P.In} wag, po jednej z każdego neuronu poprzedniej warstwy.`;
+    box.append(h, note); IN = {kind:'head'};
+    return;
+  }
+  const {r, t} = S.sel, R = rnnIdx(m), P = m.P[R[r]], H = P.H, In = P.In, cs = H <= 8 && In <= 8 ? 27 : 16;
+  const nav = document.createElement('span'); nav.className = 'mini';
+  nav.append(miniBtn('◀', 'Poprzedni krok', () => { S.sel.t = Math.max(0, S.sel.t - 1); S.cellPlay = false; syncCellPlay(); S.dirty = true; }),
+    miniBtn('▶', 'Następny krok', () => { S.sel.t = Math.min(S.T - 1, S.sel.t + 1); S.cellPlay = false; syncCellPlay(); S.dirty = true; }));
+  const play = document.createElement('button'); play.className = 'btn sm'; play.onclick = () => { S.cellPlay = !S.cellPlay; syncCellPlay(); };
+  const tt = document.createElement('b'); tt.id = 'inspT';
+  h.append(tt, nav, play);
+  const fx = document.createElement('div'); fx.className = 'fx'; fx.innerHTML = `<span class="m">hₜ = ${ACTS[m.act].label}( Wₓ · xₜ + Wₕ · hₜ₋₁ + b )</span>`;
+  const cw = document.createElement('div'); cw.className = 'cw';
+  const mat = (rows, cols, arr, dis) => { const g = document.createElement('div'); g.className = 'grid'; g.style.gridTemplateColumns = `repeat(${cols}, auto)`; g.style.setProperty('--cs', cs + 'px'); const cells = [];
+    for (let q=0; q<rows*cols; q++){ const c = makeCell(() => arr()[q], v => { arr()[q] = v; }, dis); g.append(c); cells.push(c); } return {g, cells}; };
+  const wx = mat(H, In, () => m.P[R[S.sel.r]].Wx, false), wh = mat(H, H, () => m.P[R[S.sel.r]].Wh, !P.rec);
+  const xin = vecCells(In, cs), hp = vecCells(H, cs), z = vecCells(H, cs), hh = vecCells(H, cs);
+  const bg = document.createElement('div'); bg.className = 'grid'; bg.style.setProperty('--cs', cs + 'px'); const bc = [];
+  for (let q=0; q<H; q++){ const c = makeCell(() => m.P[R[S.sel.r]].b[q], v => { m.P[R[S.sel.r]].b[q] = v; }); bg.append(c); bc.push(c); }
+  const inName = r === 0 ? 'xₜ' : `hₜ RNN ${r}`;
+  cw.append(fig(wx.g, `Wₓ ${H}×${In}`), opEl('·'), fig(xin.g, inName), opEl('+'), fig(wh.g, P.rec ? `Wₕ ${H}×${H}` : 'Wₕ (wyłączona)'), opEl('·'), fig(hp.g, 'hₜ₋₁'), opEl('+'), fig(bg, 'b'), opEl('='), fig(z.g, 'z'), opEl(`→ ${ACTS[m.act].label} →`), fig(hh.g, '<b style="color:var(--ink)">hₜ</b>'));
+  const calc = document.createElement('div'); calc.className = 'calc';
+  const pr = document.createElement('div'); pr.className = 'presets'; pr.append('Pamięć Wₕ:');
+  const setWh = f => { const Pc = m.P[R[S.sel.r]]; if (!Pc.rec) return; for (let j=0; j<H; j++) for (let k=0; k<H; k++) Pc.Wh[j*H+k] = f(j, k); m.ver++; S.dirty = true; };
+  [['zero (bez pamięci)', () => 0], ['0,9 · I (trzymaj stan)', (j, k) => j === k ? .9 : 0], ['losowa', () => randn()*.9/Math.sqrt(H)]].forEach(([nm, f]) => { const b = document.createElement('button'); b.textContent = nm; b.disabled = !P.rec; b.onclick = () => setWh(f); pr.append(b); });
+  box.append(h, fx, cw, calc, pr);
+  IN = {kind:'h', wx:wx.cells, wh:wh.cells, b:bc, xin:xin.cells, hp:hp.cells, z:z.cells, hh:hh.cells, calc, play, cs};
+  syncCellPlay();
+}
+function syncCellPlay(){ if (IN && IN.play) IN.play.innerHTML = S.cellPlay ? '❚❚&nbsp; Zatrzymaj' : '▶&nbsp; Przesuwaj w czasie'; }
+function paintCell(el, v, sc, show){ el.style.background = heatCss(v*sc); el.textContent = show ? (Math.abs(v) < .005 ? '0' : v.toFixed(2).replace('-', '−')) : ''; el.style.color = Math.abs(v*sc) > .6 ? '#fff' : C.inkS; }
+function updateInspector(m, pf){
+  if (!IN || !S.knobs || !m) return;
+  const fx = $('#fx');
+  if (IN.kind === 'head'){
+    const hc = E.head[S.sel.hi], Q = pf.L[hc.i], P = m.P[hc.i], j = S.sel.j;
+    if (fx) fx.innerHTML = `z = Σ w·a + b = ${f3(Q.z[j])} → ${P.t === 'out' ? 'softmax → P = ' + (Q.a[j]*100).toFixed(1) + '%' : ACTS[m.act].label + ' → a = ' + f3(Q.a[j])}`;
+    return;
+  }
+  const {r, t} = S.sel, c = contrib(m, pf, r, t), P = c.P, show = IN.cs >= 27;
+  $('#inspT').textContent = `RNN ${r+1} · krok t = ${t+1}`;
+  const wmx = Math.max(.5, maxAbs(P.Wx), P.rec ? maxAbs(P.Wh) : 0);
+  IN.wx.forEach((el, q) => paintCell(el, P.Wx[q], 1/wmx, show));
+  if (P.rec) IN.wh.forEach((el, q) => paintCell(el, P.Wh[q], 1/wmx, show)); else IN.wh.forEach(el => { el.style.background = 'transparent'; el.textContent = ''; });
+  IN.b.forEach((el, q) => paintCell(el, P.b[q], 1/wmx, show));
+  IN.xin.forEach((el, q) => paintCell(el, c.inp[q], 1, show));
+  IN.hp.forEach((el, q) => paintCell(el, c.hp[q], 1, show));
+  const zm = Math.max(1, maxAbs(c.z));
+  IN.z.forEach((el, q) => paintCell(el, c.z[q], 1/zm, show));
+  IN.hh.forEach((el, q) => paintCell(el, c.h[q], 1, show));
+  const nx = norm(c.wx), nh = norm(c.wh), share = nx + nh > 1e-9 ? nh/(nx + nh) : 0;
+  IN.calc.innerHTML = `‖Wₓ·xₜ‖ = <b>${nx.toFixed(3)}</b> <span class="m">(nowa informacja z wejścia)</span><br>‖Wₕ·hₜ₋₁‖ = <b>${nh.toFixed(3)}</b> <span class="m">(to, co sieć pamięta z kroków 1…${t})</span><br>udział pamięci w kroku ${t+1}: <b>${(share*100).toFixed(0)}%</b>` + (t === 0 ? '<br><span class="m">W kroku 1 nie ma jeszcze pamięci: h₀ = 0.</span>' : '');
+}
+
+/* ---------- rysowanie ---------- */
+function draw(){
+  const m = active(), T = S.T;
+  let pf = null;
+  if (m && S.probe.x.length === T*m.D){
+    if (!S.vws || S.vws.sig !== sigOf(m)) S.vws = makeWS(m);
+    pf = forward(m, S.probe.x, S.vws);
+    if (!S.playing && m.evalVer !== m.ver && S.train.length) evaluate(m);
+    const infer = S.mode === 'infer', R = E.R, out = pf.out;
+    let pc = S.probe.c; if (pc === null){ pc = 0; for (let k=1; k<out.length; k++) if (out[k] > out[pc]) pc = k; }
+    // gradient w czasie dla bieżącej sekwencji
+    const gn = S.gn; gn.fill(0); backward(m, pf, pc, null, gn);
+    let gmx = 1e-9; for (let t=0; t<T; t++) gmx = Math.max(gmx, gn[t]);
+    for (let t=0; t<T; t++){ E.g[t].style.height = Math.max(1, gn[t]/gmx*32) + 'px'; E.g[t].parentNode.title = `‖∂L/∂h${t+1}‖ = ${gn[t].toExponential(2)}`; }
+    // wejście
+    for (let t=0; t<T; t++){
+      const el = E.x[t].el;
+      if (m.D === 3){ const k = argmax3(pf.x, t*3), v = clamp01(pf.x[t*3+k]); el.textContent = SYM[k]; el.style.background = C.symS[k]; el.style.opacity = .35 + .65*v; }
+      else { const v = Math.max(-1.3, Math.min(1.3, pf.x[t])), hgt = Math.abs(v)/1.3*50; const b = E.x[t].bar; b.style.height = hgt + '%'; b.style.top = v >= 0 ? (50 - hgt) + '%' : '50%'; b.style.background = v >= 0 ? C.posS : C.negS; }
+    }
+    // stany h
+    R.forEach((i, r) => {
+      const P = m.P[i], h = pf.L[i].h, sc = m.act === 'tanh' ? 1 : 1/maxAbs(h);
+      for (let t=0; t<T; t++){
+        const c = E.h[r][t];
+        paintMap(c.cv, h, 1, P.H, sc, (t+1)*P.H);
+        c.el.classList.toggle('pend', infer && S.stage !== null && t + 1 > S.stage);
+        c.el.classList.toggle('sel', S.sel.kind === 'h' && S.sel.r === r && S.sel.t === t);
+      }
+    });
+    // głowica
+    E.head.forEach((hc, q) => {
+      const Q = pf.L[hc.i], P = m.P[hc.i], pend = infer && S.stage !== null && S.stage < T + 1 + q;
+      hc.col.classList.toggle('pend', pend);
+      if (P.t === 'out'){
+        let b = 0; for (let j=1; j<P.N; j++) if (Q.a[j] > Q.a[b]) b = j;
+        hc.u.forEach((u, j) => { const col = C.pal[j % 5], z = C.heat0, t = Q.a[j]; u.el.style.background = rgb([z[0]+(col[0]-z[0])*t, z[1]+(col[1]-z[1])*t, z[2]+(col[2]-z[2])*t]); u.ov.textContent = pend ? '' : (t*100).toFixed(0) + '%'; u.row.classList.toggle('win', !pend && j === b); u.el.classList.toggle('sel', S.sel.kind === 'head' && S.sel.hi === q && S.sel.j === j); });
+      } else {
+        const sc = 1/maxAbs(Q.a);
+        hc.u.forEach((u, j) => { u.el.style.background = heatCss(Q.a[j]*sc); u.val.textContent = infer && !pend && P.N <= 12 ? f2(Q.a[j]) : ''; u.el.classList.toggle('sel', S.sel.kind === 'head' && S.sel.hi === q && S.sel.j === j); });
+      }
+    });
+    // krawędzie: grubość = wielkość wkładu w danym kroku
+    const mags = R.map((_, r) => { const a = []; let mx = 1e-6; for (let t=0; t<T; t++){ const c = contrib(m, pf, r, t), nx = norm(c.wx), nh = norm(c.wh); a.push([nx, nh]); mx = Math.max(mx, nx, nh); } return {a, mx}; });
+    for (const e of edges){
+      let cl = 'e ', op, wd;
+      if (e.type === 'in' || e.type === 'rec'){
+        const g = mags[e.r], v = g.a[e.t][e.type === 'in' ? 0 : 1]/g.mx;
+        cl += e.type; op = .12 + .8*v; wd = .7 + 3*v;
+        if (infer && S.stage !== null){ if (e.t + 1 > S.stage) op *= .12; else if (e.t + 1 === S.stage) cl += ' flow'; }
+        if (S.hover && S.hover.r !== undefined){ if (e.r === S.hover.r && e.t === S.hover.t) op = Math.max(op, .85); else op *= .2; }
+      } else if (e.type === 'cut'){ cl += 'cut'; op = .35; wd = 1; }
+      else if (e.type === 'fan'){ cl += 'm'; op = .3; wd = 1; if (infer && S.stage !== null && S.stage < T + 1) op *= .15; if (S.hover && S.hover.hi === 0) op = S.hover.j === e.j ? .8 : .08; }
+      else {
+        const P = m.P[E.head[e.hi].i], w = P.W[e.j*P.In + e.k], mag = Math.min(1, Math.abs(w));
+        cl += w >= 0 ? 'p' : 'n'; op = .1 + .7*mag; wd = .5 + 2.4*mag;
+        if (infer && S.stage !== null && S.stage < T + 1 + e.hi) op *= .15;
+        if (S.hover && S.hover.hi !== undefined){ if (S.hover.hi === e.hi && S.hover.j === e.j) op = Math.max(op, .8); else op *= .15; }
+      }
+      e.el.setAttribute('class', cl); e.el.setAttribute('stroke-width', wd.toFixed(2)); e.el.setAttribute('stroke-opacity', op.toFixed(2));
+    }
+    updateInspector(m, pf);
+    if (tipNode) refreshTip(m, pf);
+    $('#chipName').textContent = m.name; $('#chipEp').textContent = `epoka ${m.epoch}`;
+    if (S.thumbTick >= 15){ S.thumbTick = 0; const cd = document.querySelector(`.card[data-id="${m.id}"]`); if (cd){ paintThumb(cd.querySelector('canvas'), m); cd.querySelector('.ep').textContent = `${m.epoch} ep.`; } }
+  }
+  if (S.mode === 'infer') renderDataSlot();
+  drawPred(m, pf); drawStats(m); drawChart(m); drawGallery(m); drawCM(m);
+  const L = T + (E ? E.head.length : 1);
+  $('#link1').classList.toggle('on', S.playing || (S.mode === 'infer' && S.stage !== null));
+  $('#link2').classList.toggle('on', S.playing || (S.mode === 'infer' && S.stage !== null && S.stage >= L));
+  $('#stageV').textContent = S.mode === 'infer' && S.stage !== null && m ? (S.stage === 0 ? `krok 0/${L}: wejście` : S.stage <= T ? `krok ${S.stage}/${L}: t = ${S.stage}` : `krok ${S.stage}/${L}: ${S.stage === L ? 'wyjście' : 'gęsta'}`) : '';
+}
+function drawPred(m, pf){
+  const box = $('#pred'), info = $('#pinfo');
+  if (!m || !pf){ box.innerHTML = ''; info.textContent = m ? '' : 'Brak modelu w programie'; return; }
+  const out = pf.out, L = S.T + E.head.length, done = S.mode !== 'infer' || S.stage === null || S.stage >= L;
+  let b = 0; for (let k=1; k<out.length; k++) if (out[k] > out[b]) b = k;
+  const mark = S.probe.c !== null ? (b === S.probe.c ? ' ✓' : ' ✗') : '';
+  const lbl = S.probe.src === 'train' ? 'sekwencja treningowa' : S.probe.src === 'test' ? 'sekwencja testowa' : 'sekwencja ręczna';
+  info.innerHTML = done ? `${lbl} → ${cls(b)}${mark}` : `${lbl} → …`;
+  box.innerHTML = Array.from(out, (v, k) => `<div class="pbar${done && k === b ? ' win' : ''}"><span class="nm">${cls(k)}</span><span class="tr"><i style="width:${done ? (v*100).toFixed(1) : 0}%;background:${C.palS[k%5]}"></i></span><span class="v">${done ? (v*100).toFixed(0) + '%' : '…'}</span></div>`).join('');
+}
+function drawStats(m){
+  if (!m || !m.last){ $('#sEp').textContent = m ? m.epoch : '–'; $('#sAcc').textContent = '–'; $('#sLtr').textContent = '–'; return; }
+  $('#sEp').textContent = m.epoch;
+  const a = m.last.te.acc;
+  $('#sAcc').textContent = isNaN(a) ? '–' : (a*100).toFixed(1) + '%';
+  $('#sLtr').textContent = isNaN(m.last.tr.loss) ? '–' : m.last.tr.loss.toFixed(3);
+}
+function drawChart(m){
+  const cv = $('#chart'), dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr), H = Math.round(cv.clientHeight*dpr);
+  if (!W) return;
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d'); ctx.clearRect(0,0,W,H);
+  const padL = 30*dpr, padB = 14*dpr, padT = 6*dpr, cw = W - padL - 4*dpr, chh = H - padB - padT, h = m ? m.hist : [];
+  let mx = .8; for (const r of h) mx = Math.max(mx, r[0] || 0, isNaN(r[1]) ? 0 : r[1]); mx = Math.min(mx, 3);
+  ctx.font = `${9.5*dpr}px "IBM Plex Mono", monospace`; ctx.fillStyle = C.mutedS; ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr;
+  for (const t of [0, mx/2, mx]){ const y = padT + chh - t/mx*chh; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-4*dpr,y); ctx.stroke(); ctx.fillText(t.toFixed(2), 0, y + 3*dpr); }
+  ctx.fillText('0', padL, H - 2*dpr);
+  const lab = `${m ? m.epoch : 0} ep.`; ctx.fillText(lab, W - 4*dpr - ctx.measureText(lab).width, H - 2*dpr);
+  if (h.length < 2) return;
+  const X = i => padL + i/(h.length-1)*cw, Y = v => padT + chh - Math.min(v,mx)/mx*chh;
+  ctx.lineWidth = 1.8*dpr;
+  ctx.strokeStyle = C.mutedS; ctx.setLineDash([4*dpr, 3*dpr]); ctx.beginPath(); h.forEach((r,i) => i ? ctx.lineTo(X(i),Y(r[1])) : ctx.moveTo(X(i),Y(r[1]))); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = C.inkS; ctx.beginPath(); h.forEach((r,i) => i ? ctx.lineTo(X(i),Y(r[0])) : ctx.moveTo(X(i),Y(r[0]))); ctx.stroke();
+}
+const GC = 2, GR = 10;
+function galGeom(W, dpr){ const gap = 5*dpr, cw = (W - gap*(GC+1))/GC, ch = Math.round(cw*.3); return {gap, cw, ch, H:gap + GR*(ch + gap)}; }
+function drawGallery(m){
+  const cv = $('#cv'), dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr);
+  if (!W) return;
+  const g = galGeom(W, dpr);
+  if (cv.width !== W || cv.height !== g.H){ cv.width = W; cv.height = g.H; cv.style.height = (g.H/dpr) + 'px'; }
+  const ctx = cv.getContext('2d'); ctx.fillStyle = C.sunkS; ctx.fillRect(0, 0, W, g.H);
+  const ds = curDs(), preds = m && m.last ? m.last.te.preds : null, bw = 2.5*dpr;
+  if (!S.test.length || !ds){ ctx.fillStyle = C.mutedS; ctx.font = `${12*dpr}px "IBM Plex Sans", sans-serif`; ctx.textAlign = 'center'; ctx.fillText('brak danych', W/2, g.H/2); ctx.textAlign = 'left'; return; }
+  for (let i=0; i<GC*GR && i<S.test.length; i++){
+    const p = S.test[i], x = g.gap + (i%GC)*(g.cw + g.gap), y = g.gap + Math.floor(i/GC)*(g.ch + g.gap);
+    ctx.fillStyle = C.panelS; ctx.fillRect(x, y, g.cw, g.ch);
+    drawSeq(ctx, p.x, p.T, ds.D, x + 5*dpr, y + 5*dpr, g.cw - 10*dpr, g.ch - 10*dpr, dpr);
+    if (preds){
+      const pr = preds[i]; ctx.strokeStyle = C.palS[pr % 5]; ctx.lineWidth = bw; ctx.strokeRect(x + bw/2, y + bw/2, g.cw - bw, g.ch - bw);
+      if (pr !== p.c){ const t = g.ch*.45; ctx.fillStyle = C.palS[p.c % 5]; ctx.beginPath(); ctx.moveTo(x + g.cw, y); ctx.lineTo(x + g.cw, y + t); ctx.lineTo(x + g.cw - t, y); ctx.closePath(); ctx.fill(); }
+    }
+  }
+}
+function drawCM(m){
+  const cv = $('#cm'), dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr), K = m ? m.K : nK();
+  if (!W) return;
+  const lw = 84*dpr, top = 18*dpr, cs = Math.min((W - lw - 4*dpr)/K, 46*dpr), H = Math.round(top + K*cs + 4*dpr), cm = m && m.last ? m.last.te.cm : null;
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; cv.style.height = (H/dpr) + 'px'; }
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, W, H);
+  ctx.font = `${10*dpr}px "IBM Plex Mono", monospace`; ctx.fillStyle = C.mutedS; ctx.textBaseline = 'middle';
+  ctx.fillText('przewidziana →', lw, top/2);
+  for (let r=0; r<K; r++){
+    const tot = cm ? cm[r].reduce((a, b) => a + b, 0) : 0;
+    ctx.fillStyle = C.palS[r % 5]; ctx.beginPath(); ctx.arc(8*dpr, top + (r+.5)*cs, 4*dpr, 0, 7); ctx.fill();
+    ctx.fillStyle = C.inkS; ctx.textAlign = 'left'; let nm = clsName(r); if (nm.length > 10) nm = nm.slice(0, 9) + '…'; ctx.fillText(nm, 16*dpr, top + (r+.5)*cs);
+    for (let q=0; q<K; q++){
+      const v = cm ? cm[r][q] : 0, t = tot ? v/tot : 0, x = lw + q*cs, y = top + r*cs, col = r === q ? C.c2 : C.neg, z = C.heat0;
+      ctx.fillStyle = rgb([z[0]+(col[0]-z[0])*t, z[1]+(col[1]-z[1])*t, z[2]+(col[2]-z[2])*t]); ctx.fillRect(x+1, y+1, cs-2, cs-2);
+      if (cm){ ctx.fillStyle = t > .55 ? C.panelS : C.inkS; ctx.textAlign = 'center'; ctx.fillText(String(v), x + cs/2, y + cs/2); }
+    }
+  }
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+}
+
+/* ---------- podpowiedzi ---------- */
+const tip = $('#tip'); let tipNode = null;
+function placeTip(x, y){ const r = tip.getBoundingClientRect(); let lx = x + 16, ly = y + 12; if (lx + r.width > innerWidth - 8) lx = x - r.width - 16; if (ly + r.height > innerHeight - 8) ly = innerHeight - r.height - 8; tip.style.left = Math.max(8, lx) + 'px'; tip.style.top = Math.max(8, ly) + 'px'; }
+function showCellTip(r, t, el){
+  if (document.body.classList.contains('dragging') || !active()) return;
+  const m = active();
+  tipNode = {kind:'h', r, t};
+  const terms = [['Wₓ·xₜ', ''], ['Wₕ·hₜ₋₁', ''], ['b', ''], ['z', ''], ['hₜ', 'a']];
+  tip.innerHTML = `<b class="tt"></b><div class="decomp">${terms.map((q, i) => `${i === 1 || i === 2 ? '<span class="op">+</span>' : i === 3 ? '<span class="op">=</span>' : i === 4 ? `<span class="op">→ ${ACTS[m.act].label} →</span>` : ''}<figure class="term ${q[1]}"><canvas></canvas><figcaption>${q[0]}</figcaption></figure>`).join('')}</div><div class="fx tz"></div>`;
+  tip.hidden = false; refreshTip(m, S.vws);
+  const rc = el.getBoundingClientRect(); placeTip(rc.right, rc.top);
+}
+function showHeadTip(hi, j, el){
+  if (document.body.classList.contains('dragging') || !active()) return;
+  tipNode = {kind:'head', hi, j};
+  tip.innerHTML = '<b class="tt"></b><div class="fx tz"></div>';
+  tip.hidden = false; refreshTip(active(), S.vws);
+  const rc = el.getBoundingClientRect(); placeTip(rc.right, rc.top);
+}
+function refreshTip(m, pf){
+  if (!m || !pf || !tipNode || tip.hidden) return;
+  if (tipNode.kind === 'h'){
+    const {r, t} = tipNode; if (!E.h[r]) return;
+    const c = contrib(m, pf, r, t), cvs = tip.querySelectorAll('canvas'), H = c.H, px = hpx(H)*1.4;
+    tip.querySelector('.tt').textContent = `RNN ${r+1} · h${t+1}`;
+    const mx = Math.max(1e-6, maxAbs(c.wx), maxAbs(c.wh), maxAbs(c.P.b), maxAbs(c.z));
+    [[c.wx, 1/mx], [c.wh, 1/mx], [c.P.b, 1/mx], [c.z, 1/mx], [c.h, 1]].forEach(([arr, sc], i) => { paintMap(cvs[i], arr, 1, H, sc); cvs[i].style.height = (H*px) + 'px'; });
+    const nx = norm(c.wx), nh = norm(c.wh);
+    tip.querySelector('.tz').innerHTML = `wejście ${nx.toFixed(2)} · pamięć ${nh.toFixed(2)}` + (c.P.rec ? '' : ' (wyłączona)');
+  } else {
+    const hc = E.head[tipNode.hi]; if (!hc) return;
+    const P = m.P[hc.i], Q = pf.L[hc.i], j = tipNode.j;
+    tip.querySelector('.tt').textContent = P.t === 'out' ? `Wyjście · ${clsName(j)}` : `Gęsta · n${j+1}`;
+    tip.querySelector('.tz').textContent = `z = ${f3(Q.z[j])} → ${P.t === 'out' ? 'softmax → P = ' + (Q.a[j]*100).toFixed(1) + '%' : ACTS[m.act].label + ' → a = ' + f3(Q.a[j])}`;
+  }
+}
+function hideTip(){ tip.hidden = true; tipNode = null; }
+
+/* ---------- biblioteka modeli ---------- */
+function paintThumb(cv, m){
+  const ctx = cv.getContext('2d'), Wc = cv.width; ctx.fillStyle = C.heat0S; ctx.fillRect(0, 0, Wc, Wc);
+  const P = m.P[0], arr = P.rec ? P.Wh : P.Wx, w = P.rec ? P.H : P.In;
+  paintMap(tmpC, arr, w, P.H, 1/maxAbs(arr)); ctx.imageSmoothingEnabled = false; ctx.drawImage(tmpC, 0, 0, w, P.H, 2, 2, Wc - 4, Wc - 4);
+}
+function archSvg(m){
+  const A = arch(m), w = 170, h = 56, items = [{t:'in'}, ...A], n = items.length;
+  let out = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">`;
+  const xs = items.map((_, i) => n === 1 ? w/2 : 12 + i*(w-24)/(n-1));
+  for (let i=1; i<n; i++) out += `<line class="ln" x1="${xs[i-1]+6}" y1="30" x2="${xs[i]-6}" y2="30"/>`;
+  items.forEach((L, i) => {
+    const x = xs[i];
+    if (L.t === 'in'){ out += `<rect class="bx" x="${x-6}" y="24" width="12" height="12" rx="2"/><text x="${x}" y="${h-1}" text-anchor="middle">x</text>`; }
+    else if (L.t === 'rnn'){
+      out += `<path class="lp${L.rec ? '' : ' cut'}" d="M${x+5} 22 C ${x+18} 0, ${x-18} 0, ${x-5} 22"/>`;
+      if (L.rec) out += `<polygon class="rn" style="fill:var(--mem)" points="${x-8},17 ${x-2},18 ${x-6},23"/>`;
+      out += `<rect class="rn" x="${x-7}" y="22" width="14" height="16" rx="3"/><text x="${x}" y="${h-1}" text-anchor="middle">${L.H}</text>`;
+    } else {
+      const c = Math.min(L.N, 6);
+      for (let q=0; q<c; q++) out += `<circle cx="${x}" cy="${(30 + (q - (c-1)/2)*5.2).toFixed(1)}" r="2.2" class="${L.t === 'out' ? 'o' : ''}"/>`;
+      out += `<text x="${x}" y="${h-1}" text-anchor="middle">${L.N}</text>`;
+    }
+  });
+  return out + '</svg>';
+}
+const arStr = m => m.layers.map(l => l.t === 'rnn' ? `R${l.h}${l.rec ? '' : '∅'}` : `G${l.n}`).concat(String(m.K)).join(' → ');
+function makeCard(m){
+  const c = document.createElement('div'); c.className = 'card mcard'; c.dataset.id = m.id; c.tabIndex = 0;
+  c.title = 'R = warstwa rekurencyjna (liczba neuronów, ∅ = bez pamięci), G = gęsta';
+  const acc = m.last && !isNaN(m.last.te.acc) ? `<span>test ${(m.last.te.acc*100).toFixed(0)}%</span>` : '';
+  c.innerHTML = `<span class="grip"></span><div class="arch">${archSvg(m)}</div><div class="mrow"><canvas width="72" height="72"></canvas><div style="min-width:0"><div class="nm"></div><div class="ar">${arStr(m)}</div></div></div><div class="meta"><span>${ACTS[m.act].label}</span><span>${nParams(m)} wag</span><span class="ep">${m.epoch} ep.</span>${acc}</div>`;
+  c.querySelector('.nm').textContent = m.name;
+  paintThumb(c.querySelector('canvas'), m);
+  return c;
+}
+function renderLibrary(){
+  const g = $('#libGrid'); g.innerHTML = ''; $('#libCnt').textContent = S.models.length;
+  for (const m of S.models){
+    const c = makeCard(m);
+    if (m.id === S.activeId){ c.classList.add('in'); const b = document.createElement('span'); b.className = 'badge'; b.textContent = 'w programie'; c.append(b); }
+    else {
+      c.addEventListener('pointerdown', e => startDrag(e, m.id, 'lib'));
+      c.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); loadModel(m.id); } });
+    }
+    g.append(c);
+  }
+}
+function loadModel(id){ S.activeId = id; S.stage = null; S.sel = {kind:'h', r:0, t:S.T-1}; const m = active(); if (m){ adapt(m); if (!m.hist.length) record(m); } structural(); }
+function eject(){ S.activeId = null; S.playing = false; syncPlay(); structural(); }
+
+/* ---------- przeciąganie (mysz + dotyk) ---------- */
+// Dotyk: przytrzymaj ~0,3 s, aby podnieść kafelek (zwykłe przesunięcie przewija stronę).
+// Gdy cel jest poza ekranem, u góry pojawia się pasek upuszczania; przy krawędziach ekranu strona sama się przewija.
+document.addEventListener('contextmenu', e => { if (e.target.closest('.card,.chip')) e.preventDefault(); });
+let dragActive = false;
+document.addEventListener('touchmove', e => { if (dragActive && e.cancelable) e.preventDefault(); }, {passive:false});
+const dock = document.createElement('div'); dock.className = 'dropdock'; dock.hidden = true; document.body.append(dock);
+function startDrag(e, id, source){
+  dragGeneric(e, {
+    ghost:() => { const m = S.models.find(x => x.id === id); return m ? makeCard(m) : null; },
+    target:source === 'lib' ? $('#program') : $('#library'),
+    label:source === 'lib' ? 'Upuść tutaj → Program' : 'Upuść tutaj → wyjmij do biblioteki',
+    drop:() => source === 'lib' ? loadModel(id) : eject(),
+    click:source === 'lib' ? () => loadModel(id) : null,
+    hold:source === 'lib'
+  });
+}
+function dragGeneric(e, o){
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const touch = e.pointerType !== 'mouse';
+  if (!touch) e.preventDefault();
+  const sx0 = e.clientX, sy0 = e.clientY, srcEl = e.currentTarget, target = o.target, pid = e.pointerId;
+  let ghost = null, holdT = null, x = sx0, y = sy0, useDock = false, raf = 0, cancelled = false;
+  const overTarget = () => { const r = target.getBoundingClientRect(); return x>=r.left && x<=r.right && y>=r.top && y<=r.bottom; };
+  const overDock = () => { if (!useDock || dock.hidden) return false; const r = dock.getBoundingClientRect(); return y <= r.bottom + 10; };
+  const over = () => overDock() || overTarget();
+  const place = () => {
+    if (!ghost) return;
+    const gw = ghost.offsetWidth, gh = ghost.offsetHeight;
+    const gx = touch ? Math.max(4, Math.min(innerWidth - gw - 4, x - gw/2)) : x - 50, gy = touch ? Math.max(4, y - gh - 28) : y - 30;
+    ghost.style.transform = `translate(${gx}px, ${gy}px) rotate(-2.5deg)`;
+    const h = over(); target.classList.toggle('hot', h); dock.classList.toggle('hot', h && overDock());
+  };
+  const lift = () => {
+    if (ghost || cancelled) return;
+    if (srcEl.classList.contains('card')){
+      ghost = srcEl.cloneNode(true);
+      const a = srcEl.querySelectorAll('canvas'), b = ghost.querySelectorAll('canvas');
+      a.forEach((c, i) => b[i].getContext('2d').drawImage(c, 0, 0));
+    } else ghost = o.ghost();
+    if (!ghost) return;
+    ghost.classList.remove('lifting'); ghost.classList.add('ghost'); document.body.append(ghost);
+    srcEl.classList.add('lifting'); target.classList.add('armed');
+    document.body.classList.add('dragging'); hideTip(); dragActive = true;
+    const r = target.getBoundingClientRect(), vis = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+    useDock = touch || vis < Math.min(r.height, innerHeight)*.5;
+    if (useDock){ dock.textContent = o.label || 'Upuść tutaj'; dock.hidden = false; dock.classList.remove('hot'); }
+    if (touch && navigator.vibrate) try { navigator.vibrate(12); } catch(_){}
+    place(); raf = requestAnimationFrame(autoScroll);
+  };
+  const autoScroll = () => {
+    if (!ghost) return;
+    const top = useDock ? dock.getBoundingClientRect().bottom + 12 : 0, edge = 70;
+    let v = 0;
+    if (y > innerHeight - edge) v = (y - (innerHeight - edge))/edge;
+    else if (y < top + edge && y > top) v = -((top + edge) - y)/edge;
+    if (v){ window.scrollBy(0, v*18); place(); }
+    raf = requestAnimationFrame(autoScroll);
+  };
+  const mv = ev => {
+    if (ev.pointerId !== pid) return;
+    x = ev.clientX; y = ev.clientY;
+    if (!ghost){
+      const d = Math.hypot(x-sx0, y-sy0);
+      if (touch && o.hold){ if (d > 10) finish(null); return; }
+      if (d < 3) return;
+      lift();
+    }
+    place();
+  };
+  const finish = ev => {
+    const ok = !!(ev && ghost && ev.type === 'pointerup' && over());
+    cancelled = true; clearTimeout(holdT); cancelAnimationFrame(raf);
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    target.classList.remove('hot', 'armed'); srcEl.classList.remove('lifting'); document.body.classList.remove('dragging');
+    dock.hidden = true; dragActive = false;
+    if (!ev) return;
+    if (ghost){ ghost.remove(); ghost = null; if (ok) o.drop(); }
+    else if (o.click && ev.type === 'pointerup' && Math.hypot(x-sx0, y-sy0) < 10) o.click();
+  };
+  const up = ev => { if (ev.pointerId !== pid) return; x = ev.clientX; y = ev.clientY; finish(ev); };
+  if (touch && o.hold) holdT = setTimeout(lift, 320);
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+}
+$('#chip').addEventListener('pointerdown', e => { if (S.activeId) startDrag(e, S.activeId, 'prog'); });
+
+/* ---------- sterowanie ---------- */
+function setMode(md){
+  S.mode = md; S.stage = null;
+  if (md === 'infer'){ S.playing = false; syncPlay(); buildSeqEditor(); }
+  document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === md));
+  $('#gTrain').hidden = md !== 'train'; $('#gInfer').hidden = md !== 'infer';
+  $('#dTrain').hidden = md !== 'train'; $('#dInfer').hidden = md !== 'infer';
+  renderDataSlot();
+  S.dirty = true;
+}
+document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+function syncPlay(){ $('#bPlay').innerHTML = S.playing ? '❚❚&nbsp; Pauza' : '▶&nbsp; Ucz'; }
+$('#bPlay').onclick = () => { if (!active() || !S.train.length) return; S.playing = !S.playing; S.acc = 0; syncPlay(); if (!S.playing) renderLibrary(); S.dirty = true; };
+$('#bStep').onclick = () => { const m = active(); if (!m || !S.train.length) return; const T = trainState(m); const left = T.order && T.dv === S.dataVer ? S.train.length - T.cur : S.train.length; trainSamples(m, left || S.train.length); const lp = S.train[Math.floor(Math.random()*S.train.length)]; if (lp) setProbe(lp, 'train'); S.thumbTick = 99; renderLibrary(); S.dirty = true; };
+$('#bReset').onclick = () => { const m = active(); if (!m) return; fitWeights(m, true); m.epoch = 0; m.hist = []; m.histStep = 1; record(m); buildInspector(); S.thumbTick = 99; renderLibrary(); S.dirty = true; };
+const syncSpeed = () => { const sp = SPEEDS[S.speedIdx]; $('#speedV').textContent = sp.u === 'i' ? `${sp.v} sekw/s` : `${sp.v} ep/s`; };
+$('#speed').oninput = e => { S.speedIdx = +e.target.value; syncSpeed(); };
+$('#bRand').onclick = () => { const pool = S.test.length ? S.test : S.train; const p = pool[Math.floor(Math.random()*pool.length)]; if (p) setProbe(p, S.test.length ? 'test' : 'train'); };
+$('#bFwd').onclick = () => { const m = active(); if (!m) return; const L = S.T + E.head.length; S.stage = S.stage === null ? 0 : (S.stage >= L ? 0 : S.stage + 1); S.dirty = true; };
+$('#bFull').onclick = () => { S.stage = null; S.dirty = true; };
+$('#tKnobs').onchange = e => { S.knobs = e.target.checked; if (!S.knobs) S.cellPlay = false; buildInspector(); S.dirty = true; };
+$('#act').onchange = e => { const m = active(); m.act = e.target.value; renderLibrary(); S.dirty = true; };
+const fillSel = (id, vals) => { $(id).innerHTML = vals.map(v => `<option value="${v}">${v}</option>`).join(''); };
+fillSel('#lr', [0.001,0.003,0.01,0.03,0.1]);
+fillSel('#l2', [0,0.0001,0.001,0.003,0.01]);
+fillSel('#batch', [1,5,10,30,100]);
+$('#lr').onchange = e => { active().lr = +e.target.value; };
+$('#l2').onchange = e => { active().l2 = +e.target.value; };
+$('#batch').onchange = e => { active().batch = +e.target.value; };
+let libArm = null;
+$('#bLibReset').onclick = e => {
+  const b = e.currentTarget;
+  if (!libArm){ b.textContent = 'Kliknij, aby potwierdzić'; libArm = setTimeout(() => { libArm = null; b.textContent = 'Przywróć domyślne'; }, 3000); return; }
+  clearTimeout(libArm); libArm = null; b.textContent = 'Przywróć domyślne';
+  S.models = defaultModels(); S.models.forEach(adapt); S.activeId = null; S.playing = false; syncPlay(); structural();
+};
+$('#cv').addEventListener('click', e => {
+  const cv = e.currentTarget, r = cv.getBoundingClientRect(), g = galGeom(r.width, 1);
+  const gx = Math.floor((e.clientX - r.left - g.gap/2)/(g.cw + g.gap)), gy = Math.floor((e.clientY - r.top - g.gap/2)/(g.ch + g.gap)), i = gy*GC + gx;
+  if (gx >= 0 && gx < GC && S.test[i]){ setProbe(S.test[i], 'test'); if (S.mode !== 'infer') setMode('infer'); }
+});
+const syncDataLabels = () => { $('#noiseV').textContent = Math.round(S.noise*100) + '%'; $('#tV').textContent = S.T; $('#nV').textContent = S.n; };
+let regenT = null; const regenSoon = () => { clearTimeout(regenT); regenT = setTimeout(genData, 140); };
+$('#noise').oninput = e => { S.noise = e.target.value/100; syncDataLabels(); regenSoon(); };
+$('#seqT').oninput = e => { S.T = +e.target.value; S.playing = false; syncPlay(); syncDataLabels(); regenSoon(); };
+$('#npts').oninput = e => { S.n = +e.target.value; syncDataLabels(); regenSoon(); };
+$('#bRegen').onclick = genData;
+document.querySelectorAll('#dtabs button').forEach(b => b.onclick = () => { S.dtab = b.dataset.tab; renderDataLib(); });
+const editProbe = f => { if (!ensureEditable()) return; const p = S.probe; f(p.tok || p.v); reencode(); buildSeqEditor(); renderDataSlot(); };
+$('#bRev').onclick = () => editProbe(a => a.reverse());
+$('#bRot').onclick = () => editProbe(a => { const l = a[a.length-1]; a.copyWithin(1, 0, a.length-1); a[0] = l; });
+$('#bClear').onclick = () => editProbe(a => a.fill(curDs().D === 3 ? 2 : 0));
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,select,textarea,.kc')) return;
+  if (e.code === 'Space' && !e.target.closest('button,.card,.hc,.unit')){ e.preventDefault(); if (S.mode === 'train') $('#bPlay').click(); else $('#bFwd').click(); }
+  if (e.key === 'ArrowRight' && S.mode === 'infer' && !e.target.closest('button')){ e.preventDefault(); $('#bFwd').click(); }
+});
+function onTheme(){ readColors(); renderDataLib(); renderDataSlot(); renderLibrary(); if (S.mode === 'infer') buildSeqEditor(); S.dirty = true; }
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme); } catch(_){}
+new MutationObserver(onTheme).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+new ResizeObserver(() => { layoutEdges(); S.dirty = true; }).observe($('#net'));
+window.addEventListener('resize', () => { renderDataSlot(); S.dirty = true; });
+
+/* ---------- pętla ---------- */
+let lastT = performance.now();
+function loop(t){
+  const dt = Math.min(.1, (t - lastT)/1000); lastT = t;
+  const m = active();
+  if (S.playing && m && S.mode === 'train' && S.train.length){
+    S.acc += imgRate(S.train.length)*dt;
+    const t0 = performance.now(); let did = false;
+    while (S.acc >= m.batch && performance.now() - t0 < 22){ S.acc -= trainSamples(m, m.batch); did = true; }
+    if (S.acc > S.train.length) S.acc = 0;
+    if (did){ S.dirty = true; S.thumbTick++; }
+    // podgląd pokazuje dokładnie tę sekwencję, którą sieć właśnie przerabia
+    const T = trainState(m); ensureOrder(T);
+    const k = imgRate(S.train.length) <= 20 ? T.order[Math.min(S.train.length - 1, T.cur + Math.min(Math.floor(S.acc), m.batch - 1))] : T.order[Math.max(0, T.cur - 1)];
+    const p = S.train[k];
+    if (p && (S.probe.src !== 'train' || S.probe.k !== k)){ setProbe(p, 'train'); S.probe.k = k; }
+  }
+  if (S.cellPlay && t - S.cellT > 450 && S.sel.kind === 'h'){ S.sel.t = (S.sel.t + 1) % S.T; S.cellT = t; S.dirty = true; }
+  if (S.dirty){ S.dirty = false; draw(); }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- start: przykładowy stan, żeby od razu było co oglądać ---------- */
+readColors();
+syncDataLabels(); syncSpeed(); syncPlay();
+S.ds = 'first'; S.models.forEach(adapt);
+genData(); renderDataLib();
+S.activeId = S.models[2].id; loadModel(S.activeId);
+setMode('train');
+requestAnimationFrame(loop);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutEdges(); S.dirty = true; });
+})();
+</script>
+
+</body>
+</html>
