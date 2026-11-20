@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Laboratorium autoenkodera</title>
+<title>Laboratorium autoenkodera i VAE</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Układ: sterowanie u góry → ścieżka dane → program (enkoder → kod → dekoder) → wynik → biblioteki pod spodem */
+/* Układ: sterowanie u góry → ścieżka dane → program (AE: enkoder → kod → dekoder; VAE: enkoder → μ, σ → z → dekoder) → wynik → biblioteki pod spodem */
 :root{
   --bg:#e7eae5; --panel:#f9faf7; --sunk:#eef1eb; --ink:#1a231f; --muted:#64706a; --line:#d2d8d0;
   --pos:#2563d0; --neg:#d42a2a; --c2:#1c9441; --c3:#e3b100; --c4:#8b3fd1; --sel:#1a231f; --heat0:#f6f7f3;
@@ -123,7 +123,8 @@ input[type=range]{accent-color:var(--ink);width:100%;margin:0}
 .col.pend{opacity:.16}
 .colhead{height:58px;display:flex;flex-direction:column;align-items:center;gap:4px;font:600 10.5px/1 var(--f-cond);letter-spacing:.03em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
 .colhead .shp{font:500 10.5px var(--f-num);letter-spacing:0;text-transform:none;color:var(--ink)}
-.col.code .colhead{color:var(--code)}
+.col.code .colhead{color:var(--code);text-transform:none;font-size:11.5px;letter-spacing:0}
+.col.zcol{margin-left:58px}
 .mini{display:inline-flex;align-items:center;gap:2px}
 .mini button{min-width:18px;height:19px;border-radius:5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font:500 11px/1 var(--f-num);padding:0 3px}
 .mini button:disabled{opacity:.3;cursor:default}
@@ -143,6 +144,9 @@ input[type=range]{accent-color:var(--ink);width:100%;margin:0}
 .e.p{stroke:var(--pos)}.e.n{stroke:var(--neg)}.e.m{stroke:var(--muted)}
 .fan{stroke:none}
 .fan.p{fill:var(--pos)}.fan.n{fill:var(--neg)}.fan.m{fill:var(--muted)}
+.e.code{stroke:var(--code)}
+body.t-ae .vaeOnly,body.t-vae .aeOnly{display:none!important}
+.mcard .meta span.ty{color:var(--ink);font-weight:600}.mcard .meta span.ty.vae{color:var(--panel);background:var(--code)}
 .e.flow{stroke-dasharray:5 6;animation:dash .45s linear infinite}
 .editor{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:10px 14px;border-top:1px solid var(--line)}
 .ed{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
@@ -264,6 +268,8 @@ body.dragging{-webkit-user-select:none;user-select:none}
       <button class="btn" id="bRand">Losowa próbka</button>
       <button class="btn primary" id="bFwd">Krok po kroku&nbsp; ▶</button>
       <button class="btn" id="bFull">Cały przebieg</button>
+      <button class="btn vaeOnly" id="bEps">Losuj ε</button>
+      <button class="btn vaeOnly" id="bEps0">ε = 0</button>
       <span class="mono muted" id="stageV"></span>
     </div>
   </section>
@@ -280,7 +286,7 @@ body.dragging{-webkit-user-select:none;user-select:none}
         </div>
         <button class="btn wide" id="bRegen">Losuj nowe obrazy</button>
         <div class="dcount mono" id="dcount"></div>
-        <p class="hint">Autoenkoder nie dostaje etykiet. Kolory klas służą tylko do pokazania, gdzie obrazy trafiają w przestrzeni kodu.</p>
+        <p class="hint">Model nie dostaje etykiet. Kolory klas służą tylko do pokazania, gdzie obrazy trafiają w przestrzeni kodu.</p>
       </div>
       <div id="dInfer" hidden>
         <div class="tools">
@@ -293,7 +299,7 @@ body.dragging{-webkit-user-select:none;user-select:none}
           <div class="shift"><button class="btn u" data-dx="0" data-dy="-1" aria-label="W górę">↑</button><button class="btn l" data-dx="-1" data-dy="0" aria-label="W lewo">←</button><button class="btn d" data-dx="0" data-dy="1" aria-label="W dół">↓</button><button class="btn r" data-dx="1" data-dy="0" aria-label="W prawo">→</button></div>
         </div>
         <div class="dtruth mono" id="dtruth"></div>
-        <p class="hint">Rysuj po obrazie. Dodaj szum albo zasłoń połowę i zobacz, co dekoder „dopowie” na podstawie tego, czego się nauczył.</p>
+        <p class="hint" id="inferHint"></p>
       </div>
     </section>
 
@@ -311,9 +317,11 @@ body.dragging{-webkit-user-select:none;user-select:none}
           <div class="netwrap" id="netwrap"><div class="net" id="net"><svg id="edges"></svg><div class="bands" id="bands"></div><div class="cols" id="cols"></div></div></div>
           <div class="editor">
             <div class="ed"><span>Dodaj warstwę</span><div class="chips"><button id="addLayer">+ warstwa w enkoderze i dekoderze</button></div></div>
+            <label class="ed" for="mtype"><span>Typ</span><select id="mtype"><option value="ae">Autoenkoder</option><option value="vae">VAE</option></select></label>
             <label class="ed" for="act"><span>Aktywacja</span><select id="act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="linear">bez aktywacji</option></select></label>
             <label class="ed" for="lr"><span>Tempo uczenia</span><select id="lr"></select></label>
             <label class="ed" for="batch"><span>Wsad</span><select id="batch"></select></label>
+            <label class="ed vaeOnly" for="beta"><span>β (waga KL)</span><select id="beta"></select></label>
             <label class="tg"><input type="checkbox" id="tDen"><i></i>Odszumiający</label>
             <label class="tg"><input type="checkbox" id="tKnobs"><i></i>Podgląd kodu</label>
             <div class="legend"><span><i style="background:var(--pos)"></i>w&gt;0</span><span><i style="background:var(--neg)"></i>w&lt;0</span><span><i class="gr" style="background:linear-gradient(90deg,var(--neg),var(--heat0),var(--pos))"></i></span></div>
@@ -336,13 +344,17 @@ body.dragging{-webkit-user-select:none;user-select:none}
       <div class="stats">
         <div class="stat"><span>Epoka</span><b id="sEp">0</b></div>
         <div class="stat"><span>Błąd test (MSE)</span><b id="sMse">–</b></div>
-        <div class="stat"><span>Strata</span><b id="sLtr">–</b></div>
+        <div class="stat aeOnly"><span>Strata</span><b id="sLtr">–</b></div>
+        <div class="stat vaeOnly"><span>KL test</span><b id="sKl">–</b></div>
       </div>
       <canvas id="chart"></canvas>
-      <div class="clg"><span><i></i>strata trening</span><span><i class="d"></i>strata test</span></div>
+      <div class="clg"><span><i></i>strata trening</span><span><i class="d"></i>strata test</span><span class="vaeOnly"><i style="background:var(--code)"></i>KL (oś prawa)</span></div>
       <div class="subrow"><h3 class="sub" id="latTitle">Przestrzeń kodu</h3><label class="tg"><input type="checkbox" id="tMap"><i></i>Mapa dekodera</label></div>
       <canvas id="lat"></canvas>
       <div class="small" id="latNote"></div>
+      <div class="subrow"><h3 class="sub" id="genTitle"></h3><button class="btn sm" id="bGen">Losuj nowe</button></div>
+      <canvas id="gen" style="width:100%;display:block;border-radius:8px;border:1px solid var(--line);background:var(--sunk);cursor:pointer;image-rendering:auto"></canvas>
+      <div class="small" id="genNote"></div>
       <h3 class="sub">Test: wejście | odtworzenie</h3>
       <canvas id="gal"></canvas>
       <div class="small">Kliknij parę, aby prześledzić ten obraz.</div>
@@ -444,51 +456,70 @@ function genSet(id, n, nz, sh){
 
 
 
-/* ---------- model: enkoder → kod → dekoder (lustrzany) ---------- */
+/* ---------- model: AE (enkoder → kod → dekoder) albo VAE (enkoder → (μ, log σ²) → z = μ + σ·ε → dekoder) ---------- */
+// sizes = rozmiary aktywacji (w środku kod z); w VAE warstwa 'lat' ma 2× więcej wyjść: najpierw μ, potem log σ²
 const sizes = m => [NPIX, ...m.enc, m.lat, ...m.enc.slice().reverse(), NPIX];
 const roles = m => { const n = sizes(m).length - 1, li = m.enc.length; return Array.from({length:n}, (_, i) => i === n-1 ? 'out' : i < li ? 'enc' : i === li ? 'lat' : 'dec'); };
 const actOf = (m, role) => role === 'out' ? 2 : role === 'lat' ? 3 : ACTS[m.act].id;
 const latLayer = m => m.enc.length;
-const sigOf = m => sizes(m).join('-') + m.act;
+const isVae = m => m.type === 'vae';
+const sigOf = m => sizes(m).join('-') + m.act + m.type;
 function fitWeights(m, fresh){
   const s = sizes(m), R = roles(m), old = fresh ? [] : (m.P || []);
   m.P = R.map((role, i) => {
-    const In = s[i], N = s[i+1], o = old[i], W = new Float32Array(N*In), b = new Float32Array(N);
+    const In = s[i], N = role === 'lat' && isVae(m) ? 2*s[i+1] : s[i+1], o = old[i], W = new Float32Array(N*In), b = new Float32Array(N);
     const sc = Math.sqrt((m.act === 'relu' && role !== 'lat' && role !== 'out' ? 2 : 1)/In);
     for (let q=0; q<W.length; q++) W[q] = randn()*sc;
-    if (o && o.In === In) for (let j=0; j<Math.min(N, o.N); j++){ b[j] = o.b[j]; for (let k=0; k<In; k++) W[j*In+k] = o.W[j*In+k]; }
+    if (role === 'lat' && isVae(m)){ const L = N/2; for (let j=L; j<N; j++){ b[j] = -1; for (let k=0; k<In; k++) W[j*In+k] *= .1; } }
+    if (o && o.In === In && o.N === N){ W.set(o.W); b.set(o.b); }
     return {role, In, N, W, b};
   });
-  m.ver++; m.T = null; m.evalVer = -1; m.cache = null;
+  m.ver++; m.T = null; m.evalVer = -1; m.cache = null; m.genCache = null;
 }
-function mk(name, enc, lat, act){
-  const m = {id:uid(), name, enc:enc.slice(), lat, act, lr:0.003, batch:20, denoise:false, P:null, epoch:0, hist:[], histStep:1, ver:0, last:null, evalVer:-1, T:null, cache:null};
+function mk(name, type, enc, lat, act, beta){
+  const m = {id:uid(), name, type, enc:enc.slice(), lat, act, beta:beta === undefined ? 1 : beta, denoise:false, lr:0.003, batch:20, P:null, epoch:0, hist:[], histStep:1, ver:0, last:null, evalVer:-1, T:null, cache:null, genCache:null};
   fitWeights(m, true);
   return m;
 }
 function defaultModels(){
   return [
-    mk('Liniowy · kod 8', [], 8, 'linear'),
-    mk('Kod 2', [64], 2, 'relu'),
-    mk('Kod 8', [64], 8, 'relu'),
-    mk('Szeroki kod 32', [64], 32, 'relu'),
-    mk('Głęboki · kod 2', [128, 32], 2, 'relu')
+    mk('Liniowy · kod 8', 'ae', [], 8, 'linear'),
+    mk('Kod 2', 'ae', [64], 2, 'relu'),
+    mk('Kod 8', 'ae', [64], 8, 'relu'),
+    mk('Szeroki kod 32', 'ae', [64], 32, 'relu'),
+    mk('Głęboki · kod 2', 'ae', [128, 32], 2, 'relu'),
+    mk('VAE · kod 2', 'vae', [64], 2, 'relu', 1),
+    mk('VAE · β = 4 (gładka przestrzeń)', 'vae', [64], 2, 'relu', 4),
+    mk('VAE · kod 8', 'vae', [64], 8, 'relu', 1),
+    mk('Głęboki VAE · kod 2', 'vae', [128, 32], 2, 'relu', 1)
   ];
 }
 const nParams = m => m.P.reduce((a, p) => a + p.W.length + p.b.length, 0);
-function makeWS(m){ const s = sizes(m); return {sig:sigOf(m), A:s.map(n => new Float32Array(n)), Z:s.map(n => new Float32Array(n)), G:s.map(n => new Float32Array(n))}; }
-// zo = kod ustawiony ręcznie: wtedy dekoder startuje od niego zamiast od wyjścia enkodera
-function forward(m, x, ws, zo){
-  const P = m.P, ll = latLayer(m);
+function makeWS(m){
+  const s = sizes(m), L = m.lat;
+  return {sig:sigOf(m), vae:isVae(m), A:s.map(n => new Float32Array(n)), Z:s.map(n => new Float32Array(n)), G:s.map(n => new Float32Array(n)),
+    mu:new Float32Array(L), lv:new Float32Array(L), sd:new Float32Array(L), eps:new Float32Array(L), gms:new Float32Array(2*L)};
+}
+// eps = szum ε (null → ε = 0, czyli z = μ); zo = kod ustawiony ręcznie
+function forward(m, x, ws, zo, eps){
+  const P = m.P;
   ws.A[0] = x;
   for (let i=0; i<P.length; i++){
     const L = P[i], X = ws.A[i], Z = ws.Z[i+1], A = ws.A[i+1], aid = actOf(m, L.role), In = L.In, W = L.W;
-    if (zo && i === ll){ for (let j=0; j<L.N; j++){ Z[j] = zo[j]; A[j] = zo[j]; } continue; }
+    if (L.role === 'lat' && !ws.vae){   // AE: kod = wyjście enkodera (albo kod ustawiony ręcznie)
+      for (let j=0; j<L.N; j++){ let s = L.b[j]; const r = j*In; for (let k=0; k<In; k++) s += W[r+k]*X[k]; ws.mu[j] = s; const z = zo ? zo[j] : s; Z[j] = z; A[j] = z; }
+      continue;
+    }
+    if (L.role === 'lat'){
+      const Lz = L.N/2;
+      for (let j=0; j<L.N; j++){ let s = L.b[j]; const r = j*In; for (let k=0; k<In; k++) s += W[r+k]*X[k]; if (j < Lz) ws.mu[j] = s; else ws.lv[j-Lz] = Math.max(-8, Math.min(6, s)); }
+      for (let j=0; j<Lz; j++){ const sd = Math.exp(.5*ws.lv[j]), e = eps ? eps[j] : 0; ws.sd[j] = sd; ws.eps[j] = e; const z = zo ? zo[j] : ws.mu[j] + sd*e; Z[j] = z; A[j] = z; }
+      continue;
+    }
     for (let j=0; j<L.N; j++){ let s = L.b[j]; const r = j*In; for (let k=0; k<In; k++) s += W[r+k]*X[k]; Z[j] = s; A[j] = actF(aid, s); }
   }
   return ws;
 }
-// dekoduje sam kod z (bez enkodera)
 function decode(m, z, ws){
   const P = m.P, ll = latLayer(m);
   let X = z;
@@ -499,12 +530,20 @@ function decode(m, z, ws){
   }
   return X;
 }
-function backward(m, ws, target, G){
+const klOf = ws => { if (!ws.vae) return 0; let kl = 0; for (let j=0; j<ws.mu.length; j++) kl += -.5*(1 + ws.lv[j] - ws.mu[j]*ws.mu[j] - Math.exp(ws.lv[j])); return kl; };
+// strata = Σ BCE pikseli (+ w VAE: β · KL( N(μ, σ²) ‖ N(0, 1) ))
+function backward(m, ws, target, G, beta){
   const P = m.P, n = P.length;
   const gO = ws.G[n], aO = ws.A[n];
-  for (let j=0; j<aO.length; j++) gO[j] = aO[j] - target[j];   // sigmoid + entropia krzyżowa
+  for (let j=0; j<aO.length; j++) gO[j] = aO[j] - target[j];
   for (let i=n-1; i>=0; i--){
-    const L = P[i], X = ws.A[i], g = ws.G[i+1], In = L.In, W = L.W, gW = G[i].W, gb = G[i].b, gX = i > 0 ? ws.G[i] : null;
+    const L = P[i], X = ws.A[i], In = L.In, W = L.W, gW = G[i].W, gb = G[i].b, gX = i > 0 ? ws.G[i] : null;
+    let g = ws.G[i+1];
+    if (L.role === 'lat' && ws.vae){
+      const Lz = L.N/2, gz = ws.G[i+1], gm = ws.gms;
+      for (let j=0; j<Lz; j++){ gm[j] = gz[j] + beta*ws.mu[j]; gm[Lz+j] = gz[j]*ws.eps[j]*.5*ws.sd[j] + beta*.5*(Math.exp(ws.lv[j]) - 1); }
+      g = gm;
+    }
     if (gX) gX.fill(0);
     for (let j=0; j<L.N; j++){ const d = g[j]; if (d === 0) continue; gb[j] += d; const r = j*In; for (let k=0; k<In; k++){ gW[r+k] += d*X[k]; if (gX) gX[k] += W[r+k]*d; } }
     if (gX){ const aid = actOf(m, P[i-1].role), Zp = ws.Z[i], Ap = ws.A[i]; for (let k=0; k<In; k++) gX[k] *= actD(aid, Zp[k], Ap[k]); }
@@ -513,7 +552,7 @@ function backward(m, ws, target, G){
 function trainState(m){
   if (!m.T || m.T.sig !== sigOf(m)){
     const mkG = () => m.P.map(p => ({W:new Float32Array(p.W.length), b:new Float32Array(p.b.length)}));
-    m.T = {sig:sigOf(m), ws:makeWS(m), G:mkG(), M:mkG(), V:mkG(), step:0, order:null, cur:0, dv:-1, xin:new Float32Array(NPIX)};
+    m.T = {sig:sigOf(m), ws:makeWS(m), G:mkG(), M:mkG(), V:mkG(), step:0, order:null, cur:0, dv:-1, eps:new Float32Array(m.lat), xin:new Float32Array(NPIX)};
   }
   return m.T;
 }
@@ -521,13 +560,14 @@ function trainBatch(m, T, data, from, cnt){
   const G = T.G;
   for (const g of G){ g.W.fill(0); g.b.fill(0); }
   for (let t=from; t<from+cnt; t++){
-    const p = data[T.order[t]]; let x = p.img;
-    if (m.denoise){ x = T.xin; for (let i=0; i<NPIX; i++) x[i] = clamp01(p.img[i] + randn()*.35); }
-    forward(m, x, T.ws); backward(m, T.ws, p.img, G);
+    const p = data[T.order[t]], vae = isVae(m); let x = p.img;
+    if (m.denoise){ x = T.xin; for (let i=0; i<NPIX; i++) x[i] = clamp01(p.img[i] + randn()*.35); }   // odszumiający: wejście z szumem, cel czysty
+    if (vae) for (let j=0; j<m.lat; j++) T.eps[j] = randn();   // sztuczka reparametryzacji: losujemy ε, a nie z
+    forward(m, x, T.ws, null, vae ? T.eps : null); backward(m, T.ws, p.img, G, m.beta);
   }
   let tot = 0;
   for (const g of G) for (const k of ['W', 'b']){ const a = g[k]; for (let q=0; q<a.length; q++){ a[q] /= cnt; tot += a[q]*a[q]; } }
-  const sc = Math.min(1, 5/Math.sqrt(tot + 1e-12)), b1 = .9, b2 = .999; T.step++;
+  const sc = Math.min(1, (isVae(m) ? 50 : 5)/Math.sqrt(tot + 1e-12)), b1 = .9, b2 = .999; T.step++;
   const bc1 = 1 - Math.pow(b1, T.step), bc2 = 1 - Math.pow(b2, T.step), lr = m.lr;
   m.P.forEach((p, i) => { for (const k of ['W', 'b']){
     const g = G[i][k], w = p[k], M = T.M[i][k], V = T.V[i][k];
@@ -551,23 +591,24 @@ function trainSamples(m, n){
 const GALN = 24;
 function evaluate(m){
   if (!m.evWS || m.evWS.sig !== sigOf(m)) m.evWS = makeWS(m);
-  const ws = m.evWS, ll = latLayer(m), L = m.lat;
+  const ws = m.evWS;
   const run = (data, keep) => {
-    let bce = 0, mse = 0; const codes = keep ? [] : null, rec = keep ? [] : null;
+    let rec = 0, kl = 0, mse = 0; const codes = keep ? [] : null, imgs = keep ? [] : null;
     for (let i=0; i<data.length; i++){
-      const p = data[i], A = forward(m, p.img, ws).A, out = A[A.length-1];
-      for (let k=0; k<NPIX; k++){ const y = p.img[k], o = Math.min(1-1e-6, Math.max(1e-6, out[k])); bce -= y*Math.log(o) + (1-y)*Math.log(1-o); mse += (o-y)*(o-y); }
-      if (keep){ codes.push(Float32Array.from(A[ll+1])); if (i < GALN) rec.push(Float32Array.from(out)); }
+      const p = data[i], A = forward(m, p.img, ws, null, null).A, out = A[A.length-1];
+      for (let k=0; k<NPIX; k++){ const y = p.img[k], o = Math.min(1-1e-6, Math.max(1e-6, out[k])); rec -= y*Math.log(o) + (1-y)*Math.log(1-o); mse += (o-y)*(o-y); }
+      kl += klOf(ws);
+      if (keep){ codes.push(Float32Array.from(ws.mu)); if (i < GALN) imgs.push(Float32Array.from(out)); }
     }
-    const n = Math.max(1, data.length*NPIX);
-    return {loss:data.length ? bce/n : NaN, mse:data.length ? mse/n : NaN, codes, rec};
+    const n = Math.max(1, data.length);
+    return {rec:data.length ? rec/n : NaN, kl:data.length ? kl/n : NaN, mse:data.length ? mse/n/NPIX : NaN, codes, rec_imgs:imgs};
   };
   const te = run(S.test, true);
-  m.last = {tr:run(S.train.length > 200 ? S.train.slice(0, 200) : S.train, false), te, proj:project(te.codes, L)};
+  m.last = {tr:run(S.train.length > 200 ? S.train.slice(0, 200) : S.train, false), te, proj:project(te.codes, m.lat, isVae(m))};
   m.evalVer = m.ver; m.cache = null;
 }
-// 2-wymiarowy widok przestrzeni kodu: przy kodzie 2 osie z₁, z₂; przy większym — dwie główne składowe (PCA)
-function project(codes, d){
+// 2-wymiarowy widok przestrzeni kodu: przy kodzie ≤ 2 osie z₁, z₂ (w VAE zawsze z zakresem N(0,1) ±3); przy większym — PCA kodów (w VAE: średnich μ)
+function project(codes, d, vae){
   if (!codes.length) return null;
   const mean = new Float32Array(d);
   let u1 = new Float32Array(d), u2 = new Float32Array(d), pca = d > 2;
@@ -583,12 +624,12 @@ function project(codes, d){
     u2 = power(cov)[0];
   }
   const pts = codes.map(c => { let a = 0, b = 0; for (let k=0; k<d; k++){ const v = c[k]-mean[k]; a += v*u1[k]; b += v*u2[k]; } return [a, b]; });
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const box = vae && !pca;
+  let x0 = box ? -3 : Infinity, x1 = box ? 3 : -Infinity, y0 = box ? -3 : Infinity, y1 = box ? 3 : -Infinity;
   for (const [a, b] of pts){ x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); }
-  if (d === 1){ y0 = -1; y1 = 1; }
-  const px = (x1 - x0)*.12 + 1e-3, py = (y1 - y0)*.12 + 1e-3;
-  // zakres per wymiar (do suwaków)
-  const lo = new Float32Array(d).fill(Infinity), hi = new Float32Array(d).fill(-Infinity);
+  if (d === 1){ y0 = vae ? -3 : -1; y1 = vae ? 3 : 1; }
+  const pf = vae ? .06 : .12, px = (x1 - x0)*pf + 1e-3, py = (y1 - y0)*pf + 1e-3;
+  const lo = new Float32Array(d).fill(vae ? -3 : Infinity), hi = new Float32Array(d).fill(vae ? 3 : -Infinity);
   for (const c of codes) for (let k=0; k<d; k++){ lo[k] = Math.min(lo[k], c[k]); hi[k] = Math.max(hi[k], c[k]); }
   return {d, pca, mean, u1, u2, pts, x0:x0-px, x1:x1+px, y0:y0-py, y1:y1+py, lo, hi};
 }
@@ -597,7 +638,7 @@ function record(m){
   if (!S.train.length) return;
   evaluate(m);
   if ((m.epoch % m.histStep) !== 0) return;
-  m.hist.push([m.last.tr.loss, m.last.te.loss]);
+  m.hist.push([m.last.tr.rec/NPIX, m.last.te.rec/NPIX, m.last.tr.kl]);
   if (m.hist.length > 1200){ m.hist = m.hist.filter((_, i) => i%2 === 0); m.histStep *= 2; }
 }
 
@@ -607,7 +648,7 @@ const S = {
   models:defaultModels(), activeId:null,
   mode:'train', playing:false, speedIdx:5, acc:0,
   probe:{img:new Float32Array(NPIX), c:null, src:'draw'}, stage:null, brush:'draw',
-  knobs:false, map:false, zo:null, sel:null, hover:null, dirty:true, thumbTick:0, vws:null, dws:null
+  knobs:false, map:false, zo:null, eps:null, genN:null, genU:null, sel:null, hover:null, dirty:true, thumbTick:0, vws:null, dws:null
 };
 const active = () => S.models.find(m => m.id === S.activeId) || null;
 const curDs = () => S.ds ? DATASETS[S.ds] : null;
@@ -705,11 +746,15 @@ let DC = [], unitEls = [], edgeList = [];
 const NS = 'http://www.w3.org/2000/svg';
 const kindOf = n => n === NPIX ? 'img' : n <= 16 ? 'dot' : 'strip';
 function colTitle(c, m){
-  if (c.ai === 0) return 'Wejście';
+  if (c.role === 'in') return 'Wejście';
   if (c.role === 'out') return 'Rekonstrukcja';
-  if (c.role === 'lat') return 'Kod z';
+  if (c.role === 'ms') return 'μ i σ';
+  if (c.role === 'lat') return isVae(m) ? 'z = μ + σ·ε' : 'Kod z';
   return c.role === 'enc' ? `Enkoder ${c.li + 1}` : `Dekoder ${c.li - m.enc.length}`;
 }
+// wartości pokazywane w kolumnie (μ dla kolumny μσ, aktywacje dla pozostałych)
+const colVals = (c, pf) => c.role === 'ms' ? pf.mu : pf.A[c.ai];
+const colZ = (c, pf) => c.role === 'ms' ? pf.mu : pf.Z[c.ai];
 function miniBtn(txt, label, fn, dis){ const b = document.createElement('button'); b.textContent = txt; b.setAttribute('aria-label', label); b.title = label; b.disabled = !!dis; b.onclick = fn; return b; }
 const stepIn = (list, v, d) => { let i = list.indexOf(v); if (i < 0) i = list.findIndex(x => x >= v); return list[Math.max(0, Math.min(list.length-1, i + d))]; };
 function buildNetwork(){
@@ -718,12 +763,13 @@ function buildNetwork(){
   $('#empty').hidden = !!m; $('#loaded').style.display = m ? 'flex' : 'none'; $('#chip').hidden = !m;
   if (!m) return;
   const s = sizes(m), R = roles(m);
-  DC = [{ai:0, n:NPIX, role:'in'}].concat(R.map((role, i) => ({ai:i+1, li:i, n:s[i+1], role})));
+  DC = [{ai:0, n:NPIX, role:'in'}];
+  R.forEach((role, i) => { if (role === 'lat' && isVae(m)){ DC.push({role:'ms', li:i, n:s[i+1], ai:-1}); DC.push({role:'lat', li:i, n:s[i+1], ai:i+1}); } else DC.push({ai:i+1, li:i, n:s[i+1], role}); });
   DC.forEach((c, ci) => {
-    const col = document.createElement('div'); col.className = 'col' + (c.role === 'lat' ? ' code' : '');
+    const col = document.createElement('div'); col.className = 'col' + (c.role === 'lat' || c.role === 'ms' ? ' code' : '') + (c.role === 'lat' && c.n <= 16 && isVae(m) ? ' zcol' : '');
     const head = document.createElement('div'); head.className = 'colhead';
     head.append(document.createTextNode(colTitle(c, m)));
-    const shp = document.createElement('span'); shp.className = 'shp'; shp.textContent = c.n === NPIX ? '16×16 = 256' : c.n; head.append(shp);
+    const shp = document.createElement('span'); shp.className = 'shp'; shp.textContent = c.n === NPIX ? '16×16 = 256' : c.role === 'ms' ? `${c.n} + ${c.n}` : c.n; head.append(shp);
     if (c.role === 'enc' || c.role === 'lat'){
       const mini = document.createElement('span'); mini.className = 'mini';
       if (c.role === 'enc'){
@@ -732,8 +778,8 @@ function buildNetwork(){
           miniBtn('+', 'Więcej neuronów (dekoder zmieni się tak samo)', () => { m.enc[k] = stepIn(H_STEPS, v, 1); fitWeights(m, false); structural(); }, v >= H_STEPS[H_STEPS.length-1]));
         const x = miniBtn('×', 'Usuń warstwę z enkodera i dekodera', () => { m.enc.splice(k, 1); fitWeights(m, false); structural(); }); x.classList.add('x'); mini.append(x);
       } else {
-        mini.append(miniBtn('−', 'Mniejszy kod', () => { m.lat = stepIn(Z_STEPS, m.lat, -1); fitWeights(m, false); S.zo = null; structural(); }, m.lat <= 1),
-          miniBtn('+', 'Większy kod', () => { m.lat = stepIn(Z_STEPS, m.lat, 1); fitWeights(m, false); S.zo = null; structural(); }, m.lat >= 32));
+        mini.append(miniBtn('−', 'Mniejszy kod', () => { m.lat = stepIn(Z_STEPS, m.lat, -1); fitWeights(m, false); resetLat(); structural(); }, m.lat <= 1),
+          miniBtn('+', 'Większy kod', () => { m.lat = stepIn(Z_STEPS, m.lat, 1); fitWeights(m, false); resetLat(); structural(); }, m.lat >= 32));
       }
       head.append(mini);
     }
@@ -743,27 +789,29 @@ function buildNetwork(){
       const u = document.createElement('div'); u.className = 'unit'; u.tabIndex = 0; let cv = null, val = null;
       if (kind === 'img'){ u.classList.add('img'); cv = document.createElement('canvas'); u.append(cv); }
       else if (kind === 'strip'){ u.classList.add('strip'); u.style.height = Math.min(240, Math.max(90, c.n*1.9)) + 'px'; cv = document.createElement('canvas'); u.append(cv); }
-      else { const px = c.role === 'lat' ? (c.n > 8 ? 16 : 22) : c.n > 8 ? 13 : 18; u.style.width = u.style.height = px + 'px'; val = document.createElement('span'); val.className = 'val'; u.append(val); }
-      u.onclick = () => { S.sel = {ci, j}; buildInspector(); S.dirty = true; };
+      else { const px = c.role === 'ms' || (c.role === 'lat' && isVae(m)) ? (c.n > 8 ? 14 : 20) : c.role === 'lat' ? (c.n > 8 ? 16 : 22) : c.n > 8 ? 13 : 18; u.style.width = u.style.height = px + 'px'; val = document.createElement('span'); val.className = 'val'; u.append(val); }
+      u.onclick = () => { S.sel = {ci, j}; S.dirty = true; };
       u.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); u.onclick(); } };
       u.onmouseenter = () => { S.hover = {ci, j}; showTip(ci, j, u); S.dirty = true; };
       u.onmouseleave = () => { S.hover = null; hideTip(); S.dirty = true; };
       us.append(u); unitEls[ci].push({el:u, cv, val, kind});
     };
     if (kind === 'dot') for (let j=0; j<c.n; j++) make(j); else make(0);
+    if (c.role === 'ms' || (c.role === 'lat' && isVae(m))) us.style.gap = c.n > 8 ? '10px' : '18px';
     col.append(head, us); cols.append(col); c.colEl = col;
   });
-  // krawędzie
   for (let ci=1; ci<DC.length; ci++){
-    const A = unitEls[ci-1], B = unitEls[ci];
-    const add = (type, a, b, meta) => { const el = document.createElementNS(NS, type === 'w' ? 'line' : 'path'); svg.append(el); edgeList.push({type, a, b, ci, el, ...meta}); };
-    if (A[0].kind === 'dot' && B[0].kind === 'dot') B.forEach((u, j) => A.forEach((pu, k) => add('w', pu, u, {j, k})));
+    const A = unitEls[ci-1], B = unitEls[ci], c = DC[ci];
+    const add = (type, a, b, meta) => { const el = document.createElementNS(NS, type === 'w' || type === 'pair' ? 'line' : 'path'); svg.append(el); edgeList.push({type, a, b, ci, el, ...meta}); };
+    if (c.role === 'lat' && isVae(m)){ if (B[0].kind === 'dot') B.forEach((u, j) => add('pair', A[j], u, {j, k:j})); else add('band', A[0], B[0], {}); }
+    else if (A[0].kind === 'dot' && B[0].kind === 'dot') B.forEach((u, j) => A.forEach((pu, k) => add('w', pu, u, {j, k})));
     else if (B[0].kind === 'dot') B.forEach((u, j) => add('fanIn', A[0], u, {j}));
     else if (A[0].kind === 'dot') A.forEach((pu, k) => add('fanOut', pu, B[0], {k}));
     else add('band', A[0], B[0], {});
   }
   $('#addLayer').disabled = m.enc.length >= MAXENC;
-  $('#act').value = m.act; $('#lr').value = String(m.lr); $('#batch').value = String(m.batch); $('#tDen').checked = m.denoise;
+  $('#act').value = m.act; $('#lr').value = String(m.lr); $('#batch').value = String(m.batch); $('#beta').value = String(m.beta);
+  $('#mtype').value = m.type; $('#tDen').checked = m.denoise;
   requestAnimationFrame(layoutEdges);
   buildInspector();
 }
@@ -774,19 +822,31 @@ function layoutEdges(){
   for (const e of edgeList){
     const a = e.a.el.getBoundingClientRect(), b = e.b.el.getBoundingClientRect();
     const L = v => v - nr.left, T = v => v - nr.top;
-    if (e.type === 'w'){ e.el.setAttribute('x1', L(a.right)+1); e.el.setAttribute('y1', T(a.top + a.height/2)); e.el.setAttribute('x2', L(b.left)-1); e.el.setAttribute('y2', T(b.top + b.height/2)); }
+    if (e.type === 'w' || e.type === 'pair'){ e.el.setAttribute('x1', L(a.right)+1); e.el.setAttribute('y1', T(a.top + a.height/2)); e.el.setAttribute('x2', L(b.left)-1); e.el.setAttribute('y2', T(b.top + b.height/2)); }
     else if (e.type === 'fanIn') e.el.setAttribute('d', `M${L(a.right)} ${T(a.top)+2}L${L(b.left)} ${T(b.top + b.height/2)}L${L(a.right)} ${T(a.bottom)-2}Z`);
     else if (e.type === 'fanOut') e.el.setAttribute('d', `M${L(b.left)} ${T(b.top)+2}L${L(a.right)} ${T(a.top + a.height/2)}L${L(b.left)} ${T(b.bottom)-2}Z`);
     else e.el.setAttribute('d', `M${L(a.right)} ${T(a.top)}L${L(b.left)} ${T(b.top)}L${L(b.left)} ${T(b.bottom)}L${L(a.right)} ${T(a.bottom)}Z`);
   }
-  // pasma „enkoder / kod / dekoder” nad kolumnami
   const bands = $('#bands'); bands.innerHTML = '';
   const span = (from, to, txt, cl) => { if (from > to) return; const r1 = DC[from].colEl.getBoundingClientRect(), r2 = DC[to].colEl.getBoundingClientRect();
     const b = document.createElement('div'); b.className = 'band' + (cl ? ' ' + cl : ''); b.style.left = (r1.left - nr.left) + 'px'; b.style.width = (r2.right - r1.left) + 'px'; b.textContent = txt; bands.append(b); };
-  const li = DC.findIndex(c => c.role === 'lat');
-  span(0, li - 1, 'enkoder: ściska'); span(li, li, 'kod', 'code'); span(li + 1, DC.length - 1, 'dekoder: odtwarza');
+  if (isVae(m)){ const mi = DC.findIndex(c => c.role === 'ms');
+    span(0, mi - 1, 'enkoder'); span(mi, mi + 1, 'losowanie kodu', 'code'); span(mi + 2, DC.length - 1, 'dekoder'); }
+  else { const li = DC.findIndex(c => c.role === 'lat');
+    span(0, li - 1, 'enkoder: ściska'); span(li, li, 'kod', 'code'); span(li + 1, DC.length - 1, 'dekoder: odtwarza'); }
 }
-function structural(){ S.hover = null; S.vws = null; hideTip(); buildNetwork(); renderLibrary(); S.dirty = true; }
+function resetLat(){ S.zo = null; S.eps = null; S.genN = null; S.genU = null; }
+// teksty i kontrolki zależne od typu modelu (AE / VAE)
+function syncType(){
+  const m = active(), vae = !!m && isVae(m);
+  document.body.classList.toggle('t-vae', vae); document.body.classList.toggle('t-ae', !vae);
+  $('#inferHint').textContent = vae ? 'Rysuj po obrazie, dodaj szum albo zasłoń połowę. Klikaj „Losuj ε”, aby z tego samego obrazu dostać różne warianty.'
+    : 'Rysuj po obrazie. Dodaj szum albo zasłoń połowę i zobacz, co dekoder „dopowie” na podstawie tego, czego się nauczył.';
+  $('#genTitle').textContent = vae ? 'Nowe obrazy: z ~ N(0, 1) → dekoder' : 'Nowe obrazy: losowy punkt kodu → dekoder';
+  $('#genNote').textContent = vae ? 'Tych obrazów nie ma w danych: dekoder rysuje je z losowych liczb z rozkładu N(0, 1). Kliknij próbkę, aby zobaczyć jej kod.'
+    : 'Losowe punkty z zakresu, w którym leżą kody obrazów. Zwykły autoenkoder nie uczy się wypełniać przerw między nimi, więc część próbek to nieczytelne mieszanki. Kliknij próbkę, aby zobaczyć jej kod.';
+}
+function structural(){ S.hover = null; S.vws = null; S.sel = null; hideTip(); syncType(); buildNetwork(); renderLibrary(); S.dirty = true; }
 $('#addLayer').onclick = () => { const m = active(); const v = m.enc.length ? Math.max(8, m.enc[m.enc.length-1] >> 1) : 64; m.enc.push(v); fitWeights(m, false); structural(); };
 
 /* ---------- podgląd kodu (inspektor) ---------- */
@@ -842,7 +902,7 @@ function updateInspector(m, pf){
     IN.ver = m.ver;
     if (!S.dws || S.dws.sig !== sigOf(m)) S.dws = makeWS(m);
     const base = pr ? Float32Array.from(pr.mean) : new Float32Array(m.lat);
-    if (pr && !pr.pca && pr.d <= 2) for (let k=0; k<pr.d; k++) base[k] = (pr.lo[k] + pr.hi[k])/2;
+    if (pr && !pr.pca){ if (isVae(m)) base.fill(0); else for (let k=0; k<pr.d; k++) base[k] = (pr.lo[k] + pr.hi[k])/2; }
     IN.paint.forEach((cv, k) => {
       const d = pr ? Math.max(.3, (pr.hi[k] - pr.lo[k])/3) : 1;
       const zp = Float32Array.from(base), zm = Float32Array.from(base); zp[k] += d; zm[k] -= d;
@@ -861,35 +921,46 @@ function draw(){
   let pf = null;
   if (m){
     if (!S.vws || S.vws.sig !== sigOf(m)) S.vws = makeWS(m);
-    pf = forward(m, S.probe.img, S.vws, S.zo);
+    if (S.eps && S.eps.length !== m.lat) S.eps = null;
+    pf = forward(m, S.probe.img, S.vws, S.zo, isVae(m) ? S.eps : null);
     if (!S.playing && m.evalVer !== m.ver && S.train.length) evaluate(m);
-    const infer = S.mode === 'infer', ll = latLayer(m);
+    const infer = S.mode === 'infer';
     DC.forEach((c, ci) => {
-      const arr = pf.A[c.ai], pend = infer && S.stage !== null && ci > S.stage, els = unitEls[ci];
+      const pend = infer && S.stage !== null && ci > S.stage, els = unitEls[ci], arr = colVals(c, pf);
       c.colEl.classList.toggle('pend', pend);
       const k = els[0].kind;
       if (k === 'img') paintMap(els[0].cv, arr, IMG, IMG, 'gray');
       else if (k === 'strip') paintMap(els[0].cv, arr, 1, c.n, 'heat', 1/maxAbs(arr));
-      else { const sc = 1/maxAbs(arr); els.forEach((u, j) => { u.el.style.background = heatCss(arr[j]*sc); u.val.textContent = (c.role === 'lat' || infer) && !pend && c.n <= 12 ? f2(arr[j]) : ''; }); }
+      else {
+        const sc = c.role === 'ms' || c.role === 'lat' ? 1/Math.max(1, maxAbs(arr)) : 1/maxAbs(arr);
+        els.forEach((u, j) => {
+          u.el.style.background = heatCss(arr[j]*sc);
+          if (c.role === 'ms'){ const sd = pf.sd[j]; u.el.style.boxShadow = `0 0 0 1.5px ${C.codeS}, 0 0 0 ${(2 + Math.min(1.5, sd)*8).toFixed(1)}px ${C.codeS}33`; u.val.textContent = pend || c.n > 12 ? '' : `${f2(pf.mu[j])} ±${pf.sd[j].toFixed(2)}`; }
+          else u.val.textContent = (c.role === 'lat' || infer) && !pend && c.n <= 12 ? f2(arr[j]) : '';
+        });
+      }
       els.forEach((u, j) => { u.el.classList.toggle('sel', !!S.sel && S.sel.ci === ci && S.sel.j === j); u.el.classList.toggle('ovr', !!S.zo && c.role === 'lat'); });
     });
     for (const e of edgeList){
       let cl, op, wd = 1;
-      const c = DC[e.ci], P = m.P[c.li];
-      if (e.type === 'w'){
-        const w = P.W[e.j*P.In + e.k]; let v = w, mag;
-        if (infer){ v = w*pf.A[c.ai-1][e.k]; mag = Math.min(1, Math.abs(v)/1.5); } else mag = Math.min(1, Math.abs(w)/1);
+      const c = DC[e.ci], P = c.li !== undefined ? m.P[c.li] : null, prev = DC[e.ci-1];
+      if (e.type === 'pair'){
+        const sh = Math.abs(pf.sd[e.j]*pf.eps[e.j]);
+        cl = 'e code' + (S.eps && !S.zo ? ' flow' : ''); op = S.zo ? .15 : .55; wd = 1.4 + Math.min(3, sh*3);
+      } else if (e.type === 'w'){
+        const pv = colVals(prev, pf), w = P.W[e.j*P.In + e.k]; let v = w, mag;
+        if (infer){ v = w*pv[e.k]; mag = Math.min(1, Math.abs(v)/1.5); } else mag = Math.min(1, Math.abs(w)/1);
         cl = 'e ' + (v >= 0 ? 'p' : 'n'); op = .1 + .8*mag; wd = .5 + mag*3;
       } else {
         let mag = .3, sign = 'm';
-        if (e.type === 'fanIn'){ const z = pf.Z[c.ai][e.j], mx = maxAbs(pf.A[c.ai]); mag = Math.abs(pf.A[c.ai][e.j])/mx; if (infer) sign = z >= 0 ? 'p' : 'n'; }
-        if (e.type === 'fanOut'){ const a = pf.A[c.ai-1][e.k], mx = maxAbs(pf.A[c.ai-1]); mag = Math.abs(a)/mx; if (infer) sign = a >= 0 ? 'p' : 'n'; }
+        if (e.type === 'fanIn'){ const v = colVals(c, pf), z = colZ(c, pf); mag = Math.abs(v[e.j])/maxAbs(v); if (infer) sign = z[e.j] >= 0 ? 'p' : 'n'; }
+        if (e.type === 'fanOut'){ const v = colVals(prev, pf); mag = Math.abs(v[e.k])/maxAbs(v); if (infer) sign = v[e.k] >= 0 ? 'p' : 'n'; }
         cl = 'fan ' + sign; op = e.type === 'band' ? .07 : (infer ? .04 + .16*mag : .06);
       }
       if (infer && S.stage !== null){ if (e.ci > S.stage) op *= .15; else if (e.ci === S.stage && e.type === 'w') cl += ' flow'; }
-      if (S.hover){ const hit = (e.ci === S.hover.ci && (e.j === undefined || e.j === S.hover.j)) || (e.ci === S.hover.ci + 1 && (e.k === undefined || e.k === S.hover.j)); if (hit) op = Math.max(op, e.type === 'w' ? .7 : .22); else op *= .25; }
+      if (S.hover){ const hit = (e.ci === S.hover.ci && (e.j === undefined || e.j === S.hover.j)) || (e.ci === S.hover.ci + 1 && (e.k === undefined || e.k === S.hover.j)); if (hit) op = Math.max(op, e.type === 'w' || e.type === 'pair' ? .7 : .22); else op *= .25; }
       e.el.setAttribute('class', cl);
-      if (e.type === 'w'){ e.el.setAttribute('stroke-width', wd.toFixed(2)); e.el.setAttribute('stroke-opacity', op.toFixed(2)); }
+      if (e.type === 'w' || e.type === 'pair'){ e.el.setAttribute('stroke-width', wd.toFixed(2)); e.el.setAttribute('stroke-opacity', op.toFixed(2)); }
       else e.el.setAttribute('fill-opacity', op.toFixed(3));
     }
     updateInspector(m, pf);
@@ -898,11 +969,11 @@ function draw(){
     if (S.thumbTick >= 15){ S.thumbTick = 0; const cd = document.querySelector(`.card[data-id="${m.id}"]`); if (cd){ paintThumb(cd.querySelector('canvas'), m); cd.querySelector('.ep').textContent = `${m.epoch} ep.`; } }
   }
   if (S.mode === 'infer') renderDataSlot();
-  drawTrio(m, pf); drawStats(m); drawChart(m); drawLatent(m, pf); drawGallery(m);
+  drawTrio(m, pf); drawStats(m); drawChart(m); drawLatent(m, pf); drawGen(m); drawGallery(m);
   const L = DC.length - 1;
   $('#link1').classList.toggle('on', S.playing || (S.mode === 'infer' && S.stage !== null));
   $('#link2').classList.toggle('on', S.playing || (S.mode === 'infer' && S.stage !== null && m && S.stage >= L));
-  $('#stageV').textContent = S.mode === 'infer' && S.stage !== null && m ? `krok ${S.stage}/${L}: ${colTitle(DC[S.stage], m).toLowerCase()}` : '';
+  $('#stageV').textContent = S.mode === 'infer' && S.stage !== null && m ? `krok ${S.stage}/${L}: ${colTitle(DC[S.stage], m).toLowerCase()}` : m && isVae(m) ? (S.eps ? 'ε wylosowane' : 'ε = 0 (z = μ)') : '';
 }
 function sqCanvas(cv){ const dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr); if (W && cv.width !== W){ cv.width = W; cv.height = W; } return W; }
 function drawTrio(m, pf){
@@ -917,31 +988,32 @@ function drawTrio(m, pf){
     const diff = new Float32Array(NPIX); let mse = 0; for (let i=0; i<NPIX; i++){ diff[i] = out[i] - S.probe.img[i]; mse += diff[i]*diff[i]; }
     put(d, diff, 'heat', 1);
     const lbl = S.probe.src === 'train' ? 'obraz treningowy' : S.probe.src === 'test' ? 'obraz testowy' : 'rysunek';
-    $('#pinfo').innerHTML = S.zo ? 'kod ustawiony ręcznie: dekoder rysuje z suwaków / mapy' : `${lbl} · błąd tego obrazu (MSE) = <b>${(mse/NPIX).toFixed(4)}</b>`;
+    $('#pinfo').innerHTML = S.zo ? 'kod ustawiony ręcznie: dekoder rysuje z suwaków / płaszczyzny / próbki' : (isVae(m) ? `${lbl} · MSE = <b>${(mse/NPIX).toFixed(4)}</b> · KL = <b>${klOf(pf).toFixed(2)}</b>` : `${lbl} · błąd tego obrazu (MSE) = <b>${(mse/NPIX).toFixed(4)}</b>`);
   } else { put(d, null); $('#pinfo').textContent = m ? 'rekonstrukcja → …' : 'Brak modelu w programie'; }
 }
 function drawStats(m){
-  if (!m || !m.last){ $('#sEp').textContent = m ? m.epoch : '–'; $('#sMse').textContent = '–'; $('#sLtr').textContent = '–'; return; }
+  if (!m || !m.last){ $('#sEp').textContent = m ? m.epoch : '–'; $('#sMse').textContent = '–'; $('#sKl').textContent = '–'; $('#sLtr').textContent = '–'; return; }
   $('#sEp').textContent = m.epoch;
   $('#sMse').textContent = isNaN(m.last.te.mse) ? '–' : m.last.te.mse.toFixed(4);
-  $('#sLtr').textContent = isNaN(m.last.tr.loss) ? '–' : m.last.tr.loss.toFixed(3);
+  $('#sKl').textContent = isNaN(m.last.te.kl) ? '–' : m.last.te.kl.toFixed(2);
+  $('#sLtr').textContent = isNaN(m.last.tr.rec) ? '–' : (m.last.tr.rec/NPIX).toFixed(3);
 }
 function drawChart(m){
   const cv = $('#chart'), dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr), H = Math.round(cv.clientHeight*dpr);
   if (!W) return;
   if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; }
   const ctx = cv.getContext('2d'); ctx.clearRect(0,0,W,H);
-  const padL = 30*dpr, padB = 14*dpr, padT = 6*dpr, cw = W - padL - 4*dpr, chh = H - padB - padT, h = m ? m.hist : [];
-  let mx = .3; for (const r of h) mx = Math.max(mx, r[0] || 0, isNaN(r[1]) ? 0 : r[1]); mx = Math.min(mx, 2);
-  ctx.font = `${9.5*dpr}px "IBM Plex Mono", monospace`; ctx.fillStyle = C.mutedS; ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr;
-  for (const t of [0, mx/2, mx]){ const y = padT + chh - t/mx*chh; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-4*dpr,y); ctx.stroke(); ctx.fillText(t.toFixed(2), 0, y + 3*dpr); }
-  ctx.fillText('0', padL, H - 2*dpr);
-  const lab = `${m ? m.epoch : 0} ep.`; ctx.fillText(lab, W - 4*dpr - ctx.measureText(lab).width, H - 2*dpr);
+  const vae = !!m && isVae(m), padL = 30*dpr, padR = (vae ? 30 : 4)*dpr, padB = 14*dpr, padT = 6*dpr, cw = W - padL - padR, chh = H - padB - padT, h = m ? m.hist : [];
+  let mx = .2, kx = 1; for (const r of h){ mx = Math.max(mx, r[0] || 0, isNaN(r[1]) ? 0 : r[1]); kx = Math.max(kx, r[2] || 0); } mx = Math.min(mx, 1.5);
+  ctx.font = `${9.5*dpr}px "IBM Plex Mono", monospace`; ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr;
+  for (const f of [0, .5, 1]){ const y = padT + chh - f*chh; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke(); ctx.fillStyle = C.mutedS; ctx.fillText((f*mx).toFixed(2), 0, y + 3*dpr); if (vae){ ctx.fillStyle = C.codeS; ctx.fillText((f*kx).toFixed(1), W - padR + 4*dpr, y + 3*dpr); } }
+  ctx.fillStyle = C.mutedS; ctx.fillText('0', padL, H - 2*dpr);
+  const lab = `${m ? m.epoch : 0} ep.`; ctx.fillText(lab, W - padR - ctx.measureText(lab).width, H - 2*dpr);
   if (h.length < 2) return;
-  const X = i => padL + i/(h.length-1)*cw, Y = v => padT + chh - Math.min(v,mx)/mx*chh;
+  const X = i => padL + i/(h.length-1)*cw, Y = (v, s) => padT + chh - Math.min(v, s)/s*chh;
+  const line = (idx, s, col, dash) => { ctx.strokeStyle = col; ctx.setLineDash(dash || []); ctx.beginPath(); h.forEach((r, i) => i ? ctx.lineTo(X(i), Y(r[idx], s)) : ctx.moveTo(X(i), Y(r[idx], s))); ctx.stroke(); ctx.setLineDash([]); };
   ctx.lineWidth = 1.8*dpr;
-  ctx.strokeStyle = C.mutedS; ctx.setLineDash([4*dpr, 3*dpr]); ctx.beginPath(); h.forEach((r,i) => i ? ctx.lineTo(X(i),Y(r[1])) : ctx.moveTo(X(i),Y(r[1]))); ctx.stroke(); ctx.setLineDash([]);
-  ctx.strokeStyle = C.inkS; ctx.beginPath(); h.forEach((r,i) => i ? ctx.lineTo(X(i),Y(r[0])) : ctx.moveTo(X(i),Y(r[0]))); ctx.stroke();
+  line(1, mx, C.mutedS, [4*dpr, 3*dpr]); if (vae) line(2, kx, C.codeS); line(0, mx, C.inkS);
 }
 const MAPG = 10;
 function decoderMap(m, pr){
@@ -963,24 +1035,62 @@ function drawLatent(m, pf){
   const cv = $('#lat'), W = sqCanvas(cv), dpr = window.devicePixelRatio || 1; if (!W) return;
   const ctx = cv.getContext('2d'); ctx.fillStyle = C.sunkS; ctx.fillRect(0, 0, W, W);
   const pr = m && m.last && m.last.proj;
-  $('#latTitle').textContent = !m ? 'Przestrzeń kodu' : m.lat === 1 ? 'Przestrzeń kodu (z₁)' : m.lat === 2 ? 'Przestrzeń kodu (z₁, z₂)' : `Przestrzeń kodu (${m.lat} wym. → 2 główne kierunki)`;
-  $('#latNote').textContent = !m ? '' : (m.lat > 2 ? 'Kod ma więcej niż 2 liczby, więc pokazuję jego rzut na 2 kierunki o największej zmienności (PCA). ' : '') + 'Każda kropka to jeden obraz testowy. Kliknij albo przeciągnij po płaszczyźnie, aby dekoder narysował obraz z tego miejsca.';
+  $('#latTitle').textContent = !m ? 'Przestrzeń kodu' : m.lat === 1 ? 'Przestrzeń kodu (z₁)' : m.lat === 2 ? 'Przestrzeń kodu (z₁, z₂)' : `Przestrzeń kodu (${m.lat} wym. → PCA)`;
+  const vae = !!m && isVae(m);
+  $('#latNote').textContent = !m ? '' : vae
+    ? (m.lat > 2 ? 'Kod ma więcej niż 2 liczby, więc pokazuję rzut średnich μ na 2 główne kierunki (PCA). ' : 'Przerywane okręgi to rozkład N(0, 1) (1σ i 2σ), do którego KL ściąga kody. ') + 'Kropka = μ jednego obrazu testowego. Kliknij albo przeciągnij, aby dekoder narysował obraz z tego miejsca.'
+    : (m.lat > 2 ? 'Kod ma więcej niż 2 liczby, więc pokazuję jego rzut na 2 kierunki o największej zmienności (PCA). ' : '') + 'Każda kropka to jeden obraz testowy. Kliknij albo przeciągnij po płaszczyźnie, aby dekoder narysował obraz z tego miejsca.';
   if (!pr) return;
   const {X, Y} = latCoords(pr, W);
   if (S.map){ ctx.globalAlpha = .55; ctx.imageSmoothingEnabled = false; ctx.drawImage(decoderMap(m, pr), X(pr.x0), Y(pr.y1), X(pr.x1) - X(pr.x0), Y(pr.y0) - Y(pr.y1)); ctx.globalAlpha = 1; }
   ctx.strokeStyle = C.lineS; ctx.lineWidth = dpr;
   if (pr.x0 < 0 && pr.x1 > 0){ ctx.beginPath(); ctx.moveTo(X(0), 0); ctx.lineTo(X(0), W); ctx.stroke(); }
   if (pr.y0 < 0 && pr.y1 > 0){ ctx.beginPath(); ctx.moveTo(0, Y(0)); ctx.lineTo(W, Y(0)); ctx.stroke(); }
+  if (vae && !pr.pca && pr.d === 2){
+    ctx.strokeStyle = C.codeS; ctx.lineWidth = 1.5*dpr; ctx.setLineDash([5*dpr, 4*dpr]);
+    for (const r of [1, 2]){ ctx.beginPath(); ctx.ellipse(X(0), Y(0), X(r) - X(0), Y(0) - Y(r), 0, 0, 7); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
   const r = 3.2*dpr;
   pr.pts.forEach(([a, b], i) => { const p = S.test[i]; if (!p) return; ctx.fillStyle = C.palS[p.c % 5]; ctx.globalAlpha = S.map ? .95 : .8; ctx.beginPath(); ctx.arc(X(a), Y(b), r, 0, 7); ctx.fill(); });
   ctx.globalAlpha = 1;
   if (pf){
-    const z = pf.A[latLayer(m)+1]; let a = 0, b = 0; for (let k=0; k<pr.d; k++){ const v = z[k] - pr.mean[k]; a += v*pr.u1[k]; b += v*pr.u2[k]; }
-    const x = X(a), y = Y(b);
-    ctx.strokeStyle = C.panelS; ctx.lineWidth = 6*dpr; ctx.beginPath(); ctx.arc(x, y, 8*dpr, 0, 7); ctx.stroke();
-    ctx.strokeStyle = S.zo ? C.codeS : C.inkS; ctx.lineWidth = 2.5*dpr; ctx.beginPath(); ctx.arc(x, y, 8*dpr, 0, 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x - 12*dpr, y); ctx.lineTo(x - 5*dpr, y); ctx.moveTo(x + 5*dpr, y); ctx.lineTo(x + 12*dpr, y); ctx.stroke();
+    const proj = v => { let a = 0, b = 0; for (let k=0; k<pr.d; k++){ const q = v[k] - pr.mean[k]; a += q*pr.u1[k]; b += q*pr.u2[k]; } return [a, b]; };
+    const [ma, mb] = proj(pf.mu), [za, zb] = proj(pf.A[latLayer(m)+1]);
+    if (!S.zo){
+      if (vae && !pr.pca){ ctx.fillStyle = C.codeS; ctx.globalAlpha = .18; ctx.beginPath(); ctx.ellipse(X(ma), Y(mb), Math.max(2, X(pr.d > 0 ? pf.sd[0] : 0) - X(0)), Math.max(2, pr.d > 1 ? Y(0) - Y(pf.sd[1]) : 3*dpr), 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; ctx.strokeStyle = C.codeS; ctx.lineWidth = 1.5*dpr; ctx.stroke(); }
+      ctx.strokeStyle = C.panelS; ctx.lineWidth = 6*dpr; ctx.beginPath(); ctx.arc(X(ma), Y(mb), 7*dpr, 0, 7); ctx.stroke();
+      ctx.strokeStyle = C.inkS; ctx.lineWidth = 2.5*dpr; ctx.beginPath(); ctx.arc(X(ma), Y(mb), 7*dpr, 0, 7); ctx.stroke();
+    }
+    if (S.zo || (vae && S.eps)){
+      if (!S.zo){ ctx.strokeStyle = C.codeS; ctx.lineWidth = 1.5*dpr; ctx.beginPath(); ctx.moveTo(X(ma), Y(mb)); ctx.lineTo(X(za), Y(zb)); ctx.stroke(); }
+      ctx.fillStyle = C.panelS; ctx.beginPath(); ctx.arc(X(za), Y(zb), 7*dpr, 0, 7); ctx.fill();
+      ctx.fillStyle = C.codeS; ctx.beginPath(); ctx.arc(X(za), Y(zb), 5*dpr, 0, 7); ctx.fill();
+    }
   }
+}
+// nowe obrazy z losowych kodów: VAE losuje z ~ N(0, 1); zwykły AE nie ma rozkładu, więc losujemy równomiernie z zakresu kodów obrazów
+const GENC = 6, GENR = 2;
+function genCodes(m){
+  const d = m.lat, n = GENC*GENR;
+  if (!S.genN || S.genN[0].length !== d){ S.genN = Array.from({length:n}, () => Float32Array.from({length:d}, randn)); S.genU = Array.from({length:n}, () => Float32Array.from({length:d}, Math.random)); }
+  if (isVae(m)) return S.genN;
+  const pr = m.last && m.last.proj;
+  if (!pr) return S.genN;
+  return S.genU.map(u => Float32Array.from(u, (v, k) => pr.lo[k] + v*(pr.hi[k] - pr.lo[k])));
+}
+function drawGen(m){
+  const cv = $('#gen'), dpr = window.devicePixelRatio || 1, W = Math.round(cv.clientWidth*dpr); if (!W) return;
+  const gap = 4*dpr, s = (W - gap*(GENC+1))/GENC, H = Math.round(gap + GENR*(s + gap));
+  if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; cv.style.height = (H/dpr) + 'px'; }
+  const ctx = cv.getContext('2d'); ctx.fillStyle = C.sunkS; ctx.fillRect(0, 0, W, H);
+  if (!m) return;
+  if (!S.dws || S.dws.sig !== sigOf(m)) S.dws = makeWS(m);
+  genCodes(m).forEach((z, i) => {
+    const x = gap + (i%GENC)*(s + gap), y = gap + Math.floor(i/GENC)*(s + gap);
+    blitImg(ctx, decode(m, z, S.dws), x, y, s);
+    ctx.strokeStyle = C.codeS; ctx.lineWidth = 1.5*dpr; ctx.strokeRect(x + .75*dpr, y + .75*dpr, s - 1.5*dpr, s - 1.5*dpr);
+  });
 }
 const GALC = 4, GALR = 6;
 function galGeom(W, dpr){ const gap = 5*dpr, cw = (W - gap*(GALC+1))/GALC, ch = cw/2; return {gap, cw, ch, H:gap + GALR*(ch + gap)}; }
@@ -989,7 +1099,7 @@ function drawGallery(m){
   const g = galGeom(W, dpr);
   if (cv.width !== W || cv.height !== Math.round(g.H)){ cv.width = W; cv.height = Math.round(g.H); cv.style.height = (g.H/dpr) + 'px'; }
   const ctx = cv.getContext('2d'); ctx.fillStyle = C.sunkS; ctx.fillRect(0, 0, W, cv.height);
-  const rec = m && m.last ? m.last.te.rec : null;
+  const rec = m && m.last ? m.last.te.rec_imgs : null;
   for (let i=0; i<GALC*GALR && i<S.test.length; i++){
     const p = S.test[i], x = g.gap + (i%GALC)*(g.cw + g.gap), y = g.gap + Math.floor(i/GALC)*(g.ch + g.gap), s = g.ch;
     blitImg(ctx, p.img, x, y, s);
@@ -1005,21 +1115,21 @@ function placeTip(x, y){ const r = tip.getBoundingClientRect(); let lx = x + 16,
 function showTip(ci, j, el){
   if (document.body.classList.contains('dragging') || !active()) return;
   tipNode = {ci, j};
-  const c = DC[ci], m = active(), k = unitEls[ci][0].kind;
+  const c = DC[ci], k = unitEls[ci][0].kind;
   let h = '<b class="tt"></b>';
-  if (k === 'dot' && DC[ci-1] && DC[ci-1].ai === 0) h += '<div class="imgs"><figure><canvas></canvas><figcaption>wagi: czego szuka</figcaption></figure></div>';
+  if (k === 'dot' && DC[ci-1] && DC[ci-1].role === 'in') h += '<div class="imgs"><figure><canvas></canvas><figcaption>wagi: czego szuka</figcaption></figure></div>';
   if (c.role === 'lat') h += '<div class="imgs"><figure><canvas></canvas><figcaption>co maluje (dekoder)</figcaption></figure></div>';
   h += '<div class="fx tz"></div>';
-  tip.innerHTML = h; tip.hidden = false; refreshTip(m, S.vws);
+  tip.innerHTML = h; tip.hidden = false; refreshTip(active(), S.vws);
   const r = el.getBoundingClientRect(); placeTip(r.right, r.top);
 }
 function refreshTip(m, pf){
   if (!m || !pf || !tipNode || tip.hidden) return;
   const {ci, j} = tipNode, c = DC[ci]; if (!c) return;
   const k = unitEls[ci][0].kind;
-  tip.querySelector('.tt').textContent = colTitle(c, m) + (k === 'dot' ? ` · ${c.role === 'lat' ? 'z' : 'n'}${j+1}` : '');
+  tip.querySelector('.tt').textContent = colTitle(c, m) + (k === 'dot' ? ` · ${c.role === 'ms' || (c.role === 'lat' && isVae(m)) ? 'wymiar ' : c.role === 'lat' ? 'z' : 'n'}${j+1}` : '');
   const cvs = tip.querySelectorAll('canvas'); let q = 0;
-  if (k === 'dot' && DC[ci-1] && DC[ci-1].ai === 0){ const P = m.P[c.li]; paintMap(cvs[q++], P.W, IMG, IMG, 'heat', 1/maxAbs(P.W, j*NPIX, NPIX), j*NPIX); }
+  if (k === 'dot' && DC[ci-1] && DC[ci-1].role === 'in'){ const P = m.P[c.li]; paintMap(cvs[q++], P.W, IMG, IMG, 'heat', 1/maxAbs(P.W, j*NPIX, NPIX), j*NPIX); }
   if (c.role === 'lat' && cvs[q]){
     if (!S.dws || S.dws.sig !== sigOf(m)) S.dws = makeWS(m);
     const z0 = pf.A[c.ai], zp = Float32Array.from(z0), zm = Float32Array.from(z0); zp[j] += .7; zm[j] -= .7;
@@ -1027,8 +1137,10 @@ function refreshTip(m, pf){
     paintMap(cvs[q], d, IMG, IMG, 'heat', 1/maxAbs(d));
   }
   const tz = tip.querySelector('.tz');
-  if (k === 'dot'){ const aid = actOf(m, c.role); tz.textContent = `z = ${f3(pf.Z[c.ai][j])} → ${aid === 3 ? 'bez aktywacji' : ACTS[m.act].label} → a = ${f3(pf.A[c.ai][j])}`; }
-  else if (c.ai === 0) tz.textContent = '256 pikseli, wartości 0–1';
+  if (c.role === 'ms') tz.innerHTML = k === 'dot' ? `μ = ${f3(pf.mu[j])} · log σ² = ${f3(pf.lv[j])} · σ = ${pf.sd[j].toFixed(3)}<br>enkoder nie podaje jednego punktu, tylko rozkład N(μ, σ²)` : `${c.n} średnich μ i ${c.n} odchyleń σ`;
+  else if (c.role === 'lat' && isVae(m)) tz.innerHTML = k === 'dot' ? (S.zo ? `z = ${f3(pf.A[c.ai][j])} (ustawione ręcznie)` : `z = μ + σ·ε = ${f3(pf.mu[j])} + ${pf.sd[j].toFixed(3)} · ${f3(pf.eps[j])} = <b>${f3(pf.A[c.ai][j])}</b>`) : `${c.n} liczb kodu`;
+  else if (k === 'dot'){ const aid = actOf(m, c.role); tz.textContent = `z = ${f3(pf.Z[c.ai][j])} → ${aid === 3 ? 'bez aktywacji' : ACTS[m.act].label} → a = ${f3(pf.A[c.ai][j])}`; }
+  else if (c.role === 'in') tz.textContent = '256 pikseli, wartości 0–1';
   else if (c.role === 'out') tz.textContent = '256 wyjść przez sigmoid (0–1), ułożonych z powrotem w obraz 16×16';
   else tz.textContent = `${c.n} neuronów (pasek: góra = n1, dół = n${c.n})`;
 }
@@ -1053,9 +1165,9 @@ function archSvg(m){
 }
 const arStr = m => sizes(m).join(' → ');
 function makeCard(m){
-  const c = document.createElement('div'); c.className = 'card mcard'; c.dataset.id = m.id; c.tabIndex = 0; c.title = 'Liczby = neurony w kolejnych warstwach. Zielony = kod (wąskie gardło).';
+  const c = document.createElement('div'); c.className = 'card mcard'; c.dataset.id = m.id; c.tabIndex = 0; c.title = isVae(m) ? 'VAE. Liczby = neurony w kolejnych warstwach. Zielony = kod z, losowany z rozkładu N(μ, σ²).' : 'Autoenkoder. Liczby = neurony w kolejnych warstwach. Zielony = kod (wąskie gardło).';
   const mse = m.last && !isNaN(m.last.te.mse) ? `<span>MSE ${m.last.te.mse.toFixed(3)}</span>` : '';
-  c.innerHTML = `<span class="grip"></span><div class="arch">${archSvg(m)}</div><div class="mrow"><canvas width="72" height="72"></canvas><div style="min-width:0"><div class="nm"></div><div class="ar">${arStr(m)}</div></div></div><div class="meta"><span>${ACTS[m.act].label}</span><span>${nParams(m)} wag</span><span class="ep">${m.epoch} ep.</span>${mse}</div>`;
+  c.innerHTML = `<span class="grip"></span><div class="arch">${archSvg(m)}</div><div class="mrow"><canvas width="72" height="72"></canvas><div style="min-width:0"><div class="nm"></div><div class="ar">${arStr(m)}</div></div></div><div class="meta"><span class="ty ${isVae(m) ? 'vae' : ''}">${isVae(m) ? 'VAE' : 'AE'}</span><span>${isVae(m) ? 'β = ' + m.beta : ACTS[m.act].label}</span><span>${nParams(m)} wag</span><span class="ep">${m.epoch} ep.</span>${mse}</div>`;
   c.querySelector('.nm').textContent = m.name;
   paintThumb(c.querySelector('canvas'), m);
   return c;
@@ -1182,11 +1294,23 @@ $('#bFwd').onclick = () => { const m = active(); if (!m) return; const L = DC.le
 $('#bFull').onclick = () => { S.stage = null; S.dirty = true; };
 $('#tKnobs').onchange = e => { S.knobs = e.target.checked; buildInspector(); S.dirty = true; };
 $('#tMap').onchange = e => { S.map = e.target.checked; S.dirty = true; };
-$('#tDen').onchange = e => { const m = active(); if (m){ m.denoise = e.target.checked; } };
+$('#beta').onchange = e => { const m = active(); m.beta = +e.target.value; renderLibrary(); };
+$('#tDen').onchange = e => { const m = active(); if (m) m.denoise = e.target.checked; };
+// zmiana typu = nowa sieć (warstwa kodu ma inny kształt), więc uczymy od zera
+$('#mtype').onchange = e => { const m = active(); if (!m) return; m.type = e.target.value; fitWeights(m, true); m.epoch = 0; m.hist = []; m.histStep = 1; record(m); resetLat(); S.thumbTick = 99; structural(); };
+$('#bEps').onclick = () => { const m = active(); if (!m || !isVae(m)) return; S.zo = null; S.eps = Float32Array.from({length:m.lat}, randn); S.dirty = true; };
+$('#bEps0').onclick = () => { S.eps = null; S.zo = null; S.dirty = true; };
+$('#bGen').onclick = () => { S.genN = null; S.genU = null; S.dirty = true; };
+$('#gen').addEventListener('click', e => {
+  const m = active(); if (!m) return;
+  const zs = genCodes(m), r = e.currentTarget.getBoundingClientRect(), i = Math.floor((e.clientY - r.top)/(r.height/GENR))*GENC + Math.floor((e.clientX - r.left)/(r.width/GENC));
+  if (zs[i]){ S.zo = Float32Array.from(zs[i]); S.stage = null; if (S.mode !== 'infer') setMode('infer'); S.dirty = true; }
+});
 $('#act').onchange = e => { const m = active(); m.act = e.target.value; m.ver++; renderLibrary(); S.dirty = true; };
 const fillSel = (id, vals) => { $(id).innerHTML = vals.map(v => `<option value="${v}">${v}</option>`).join(''); };
 fillSel('#lr', [0.0003,0.001,0.003,0.01,0.03]);
 fillSel('#batch', [1,5,10,20,50,100]);
+fillSel('#beta', [0,0.1,0.5,1,2,4]);
 $('#lr').onchange = e => { active().lr = +e.target.value; };
 $('#batch').onchange = e => { active().batch = +e.target.value; };
 let libArm = null;
@@ -1288,7 +1412,9 @@ readColors();
 syncDataLabels(); syncSpeed(); syncPlay();
 S.ds = 'digits';
 genData(); renderDataLib();
-loadModel(S.models[1].id);
+// #vae w adresie → start od modelu VAE (lekcja o VAE); domyślnie zwykły autoenkoder z kodem 2
+const startVae = /vae/i.test(location.hash);
+loadModel((startVae ? S.models.find(m => isVae(m)) : S.models.find(m => m.name === 'Kod 2')).id);
 setMode('train');
 requestAnimationFrame(loop);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { layoutEdges(); S.dirty = true; });
